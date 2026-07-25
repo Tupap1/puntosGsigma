@@ -49,86 +49,49 @@ export function isTauri(): boolean {
   return typeof window !== 'undefined' && ('__TAURI_INTERNALS__' in window || '__TAURI__' in window);
 }
 
-// Safe invoke helper with fallback for web testing
+// Safe invoke helper (calls Tauri Rust handlers directly)
 async function safeInvoke<T>(command: string, args?: Record<string, unknown>): Promise<T> {
   if (isTauri()) {
-    const { invoke } = await import('@tauri-apps/api/core');
-    return await invoke<T>(command, args);
+    try {
+      const { invoke } = await import('@tauri-apps/api/core');
+      return await invoke<T>(command, args);
+    } catch (err: any) {
+      console.error(`[Tauri IPC Error] ${command}:`, err);
+      throw err;
+    }
   }
   
-  // Simulated fallback data when testing in browser without Tauri engine
-  console.log(`[Browser Mock IPC] Calling command: ${command}`, args);
-  return getMockData<T>(command, args);
+  // Clean Empty States when running in browser mode without Tauri engine (No Mock Fallback Data)
+  console.log(`[Browser Env] Command called: ${command}`, args);
+  return getEmptyStateData<T>(command, args);
 }
 
-// Mock fallback logic
-function getMockData<T>(command: string, args?: Record<string, unknown>): T {
+// Empty state handler (Zero fake data)
+function getEmptyStateData<T>(command: string, args?: Record<string, unknown>): T {
   switch (command) {
     case 'check_db_connection':
-      return true as T;
+      return false as T;
       
-    case 'search_customers': {
-      const query = (args?.query as string || '').toLowerCase();
-      const mockCustomers: Customer[] = [
-        { trcid: '1001', trcnumdoc: '1098765432', trcnom: 'JUAN CARLOS', trcape: 'PÉREZ GÓMEZ', trctel1: '3109876543', trcema1: 'juan.perez@email.com' },
-        { trcid: '1002', trcnumdoc: '900123456', trcnom: 'COMERCIALIZADORA ALFA SAS', trcape: '', trctel1: '6017654321', trcema1: 'contacto@alfa.com' },
-        { trcid: '1003', trcnumdoc: '63542109', trcnom: 'MARÍA FERNANDA', trcape: 'RODRÍGUEZ', trctel1: '3152345678', trcema1: 'mafe.rodriguez@email.com' },
-        { trcid: '1004', trcnumdoc: '1015432987', trcnom: 'CARLOS ALBERTO', trcape: 'MARTÍNEZ', trctel1: '3201239876', trcema1: 'cmartinez@email.com' }
-      ];
-      if (!query) return mockCustomers as T;
-      return mockCustomers.filter(c => 
-        c.trcnumdoc.includes(query) || 
-        c.trcnom.toLowerCase().includes(query) || 
-        c.trcape.toLowerCase().includes(query) ||
-        c.trctel1.includes(query)
-      ) as T;
-    }
+    case 'search_customers':
+      return [] as T;
     
     case 'get_customer_points_summary': {
-      const trcid = args?.trcid as string;
-      const valorPunto = 50; // 1 punto = 50 COP
-      if (trcid === '1001') {
-        return {
-          trcid,
-          puntos_acumulados: 4500,
-          puntos_redimidos: 1200,
-          saldo_actual: 3300,
-          valor_cop_disponible: 3300 * valorPunto,
-          valor_punto_cop: valorPunto
-        } as T;
-      }
+      const trcid = (args?.trcid as string) || '';
       return {
         trcid,
-        puntos_acumulados: 1500,
+        puntos_acumulados: 0,
         puntos_redimidos: 0,
-        saldo_actual: 1500,
-        valor_cop_disponible: 1500 * valorPunto,
-        valor_punto_cop: valorPunto
+        saldo_actual: 0,
+        valor_cop_disponible: 0,
+        valor_punto_cop: 50
       } as T;
     }
 
-    case 'redeem_points': {
-      const puntos = args?.puntos as number || 0;
-      return {
-        id: Math.floor(Math.random() * 900000 + 100000),
-        trcid: args?.trcid as string,
-        tipo: 'canje',
-        puntos: -puntos,
-        monto_cop: -puntos * 50,
-        concepto: (args?.concepto as string) || 'Redención de Puntos',
-        referencia_doc: (args?.referencia_doc as string) || `RD-${Math.floor(Math.random() * 90000)}`,
-        fecha: new Date().toISOString()
-      } as T;
-    }
+    case 'redeem_points':
+      throw new Error('No se puede redimir puntos sin estar conectado a la base de datos MySQL local.');
 
-    case 'get_points_history': {
-      const mockHistory: PointTransaction[] = [
-        { id: 1, trcid: '1001', fecha: '2026-07-24 15:30', tipo: 'acumulacion', referencia_doc: 'FAC-9842', puntos: 450, monto_cop: 22500, concepto: 'Venta POS $450.000 COP' },
-        { id: 2, trcid: '1001', fecha: '2026-07-20 11:15', tipo: 'canje', referencia_doc: 'RD-541209', puntos: -1200, monto_cop: -60000, concepto: 'Redención en Caja 01' },
-        { id: 3, trcid: '1001', fecha: '2026-07-15 09:45', tipo: 'acumulacion', referencia_doc: 'FAC-9210', puntos: 4050, monto_cop: 202500, concepto: 'Venta POS $4.050.000 COP' }
-      ];
-      return mockHistory as T;
-    }
+    case 'get_points_history':
+      return [] as T;
 
     case 'get_loyalty_config': {
       return {
@@ -139,13 +102,9 @@ function getMockData<T>(command: string, args?: Record<string, unknown>): T {
       } as T;
     }
 
-    case 'save_loyalty_config': {
+    case 'save_loyalty_config':
+    case 'save_db_config':
       return true as T;
-    }
-
-    case 'save_db_config': {
-      return true as T;
-    }
 
     case 'get_db_config': {
       return {
@@ -158,7 +117,7 @@ function getMockData<T>(command: string, args?: Record<string, unknown>): T {
     }
 
     default:
-      throw new Error(`Comando no reconocido: ${command}`);
+      return [] as T;
   }
 }
 
@@ -168,6 +127,9 @@ export async function checkDbConnection(): Promise<boolean> {
 }
 
 export async function searchCustomers(query: string): Promise<Customer[]> {
+  if (!query || query.trim().length === 0) {
+    return [];
+  }
   return safeInvoke<Customer[]>('search_customers', { query });
 }
 

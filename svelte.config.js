@@ -13,7 +13,7 @@ const config = {
 			strict: false
 		}),
 		prerender: {
-			handleHttpError: 'ignore'
+			entries: []
 		}
 	}
 };

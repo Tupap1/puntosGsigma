@@ -89,7 +89,7 @@
     <!-- 1. Reglas de Fidelización COP -->
     <div class="card config-card">
       <div class="card-header">
-        <Settings size={20} class="icon-emerald" />
+        <Settings size={20} color="#059669" />
         <h2 class="card-title">Reglas de Conversión & Puntos COP</h2>
       </div>
 
@@ -133,22 +133,24 @@
           <span class="form-hint">Facturas menores a este valor no acumulan puntos.</span>
         </div>
 
-        <button type="submit" disabled={isSavingLoyalty} class="btn btn-primary mt-4">
-          {#if isSavingLoyalty}
-            <Loader2 size={16} class="animate-spin" />
-            <span>Guardando...</span>
-          {:else}
-            <Save size={16} />
-            <span>Guardar Parámetros COP</span>
-          {/if}
-        </button>
+        <div class="form-actions mt-2">
+          <button type="submit" disabled={isSavingLoyalty} class="btn btn-primary w-full">
+            {#if isSavingLoyalty}
+              <Loader2 size={16} class="animate-spin" />
+              <span>Guardando...</span>
+            {:else}
+              <Save size={16} />
+              <span>Guardar Parámetros COP</span>
+            {/if}
+          </button>
+        </div>
       </form>
     </div>
 
     <!-- 2. Conexión MySQL 5.5 POS -->
     <div class="card config-card">
       <div class="card-header">
-        <Database size={20} class="icon-blue" />
+        <Database size={20} color="#2563eb" />
         <h2 class="card-title">Conexión Base de Datos Local MySQL 5.5</h2>
       </div>
 
@@ -156,14 +158,14 @@
         <div class="form-row">
           <div class="form-group flex-2">
             <label for="dbHost" class="form-label">Servidor / Host MySQL</label>
-            <div class="input-icon-wrapper">
-              <Server size={15} class="icon-input" />
+            <div class="input-with-icon">
+              <span class="input-icon"><Server size={15} color="#64748b" /></span>
               <input 
                 id="dbHost"
                 type="text" 
                 bind:value={localDb.host}
                 placeholder="127.0.0.1"
-                class="form-input pl-input font-mono"
+                class="form-input font-mono icon-padding"
                 required
               />
             </div>
@@ -197,14 +199,14 @@
 
           <div class="form-group flex-1">
             <label for="dbPass" class="form-label">Contraseña</label>
-            <div class="input-icon-wrapper">
-              <Key size={15} class="icon-input" />
+            <div class="input-with-icon">
+              <span class="input-icon"><Key size={15} color="#64748b" /></span>
               <input 
                 id="dbPass"
                 type="password" 
                 bind:value={localDb.password}
                 placeholder="••••••••"
-                class="form-input pl-input font-mono"
+                class="form-input font-mono icon-padding"
               />
             </div>
           </div>
@@ -226,18 +228,18 @@
         {#if dbTestMessage}
           <div class="test-banner {dbTestSuccess ? 'success' : dbTestSuccess === false ? 'error' : 'info'}">
             {#if dbTestSuccess}
-              <CheckCircle2 size={16} />
+              <CheckCircle2 size={16} color="#059669" />
             {:else if dbTestSuccess === false}
-              <AlertTriangle size={16} />
+              <AlertTriangle size={16} color="#dc2626" />
             {:else}
-              <Loader2 size={16} class="animate-spin" />
+              <Loader2 size={16} class="animate-spin text-blue" />
             {/if}
             <span>{dbTestMessage}</span>
           </div>
         {/if}
 
-        <div class="btn-group mt-4">
-          <button type="button" on:click={handleTestDb} disabled={isTestingDb} class="btn btn-secondary">
+        <div class="btn-group mt-2">
+          <button type="button" on:click={handleTestDb} disabled={isTestingDb} class="btn btn-secondary flex-1">
             {#if isTestingDb}
               <Loader2 size={15} class="animate-spin" />
               <span>Probando...</span>
@@ -247,7 +249,7 @@
             {/if}
           </button>
 
-          <button type="submit" disabled={isSavingDb || isTestingDb} class="btn btn-primary">
+          <button type="submit" disabled={isSavingDb || isTestingDb} class="btn btn-primary flex-1">
             <span>Guardar & Conectar</span>
           </button>
         </div>
@@ -286,7 +288,7 @@
     gap: 24px;
   }
 
-  @media (max-width: 900px) {
+  @media (max-width: 960px) {
     .config-grid {
       grid-template-columns: 1fr;
     }
@@ -310,9 +312,6 @@
     padding-bottom: 14px;
     border-bottom: 1px solid #e2e8f0;
   }
-
-  .icon-emerald { color: #059669; }
-  .icon-blue { color: #2563eb; }
 
   .card-title {
     font-size: 16px;
@@ -339,24 +338,48 @@
 
   .flex-1 { flex: 1; }
   .flex-2 { flex: 2; }
+  .w-full { width: 100%; }
 
   .form-label {
-    font-size: 12px;
+    font-size: 11.5px;
     font-weight: 700;
     color: #475569;
     text-transform: uppercase;
     letter-spacing: 0.04em;
   }
 
+  .input-with-icon {
+    position: relative;
+    display: flex;
+    align-items: center;
+    width: 100%;
+  }
+
+  .input-icon {
+    position: absolute;
+    left: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    pointer-events: none;
+    z-index: 2;
+  }
+
   .form-input {
     width: 100%;
-    padding: 10px 12px;
+    height: 42px;
+    padding: 10px 14px;
     background: #f8fafc;
     border: 1px solid #cbd5e1;
     border-radius: 8px;
     font-size: 14px;
     color: #0f172a;
     outline: none;
+    transition: all 150ms ease;
+  }
+
+  .form-input.icon-padding {
+    padding-left: 36px;
   }
 
   .form-input:focus {
@@ -368,23 +391,6 @@
   .form-hint {
     font-size: 11px;
     color: #64748b;
-  }
-
-  .input-icon-wrapper {
-    position: relative;
-    width: 100%;
-  }
-
-  .icon-input {
-    position: absolute;
-    left: 12px;
-    top: 50%;
-    transform: translateY(-50%);
-    color: #94a3b8;
-  }
-
-  .pl-input {
-    padding-left: 36px;
   }
 
   .test-banner {
@@ -402,9 +408,9 @@
 
   .btn-group {
     display: flex;
+    align-items: center;
     gap: 12px;
-    justify-content: flex-end;
   }
 
-  .mt-4 { margin-top: 16px; }
+  .mt-2 { margin-top: 8px; }
 </style>
