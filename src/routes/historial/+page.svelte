@@ -3,20 +3,44 @@
   import { History } from 'lucide-svelte';
 </script>
 
-<div class="historial-view flex flex-col gap-6">
-  <!-- Page Header -->
-  <header class="flex items-center justify-between pb-4 border-b border-slate-800">
+<div class="historial-page">
+  <header class="page-header">
     <div>
-      <div class="flex items-center gap-2">
-        <History class="text-emerald-400" size={24} />
-        <h1 class="text-2xl font-extrabold text-slate-100">Historial Global de Movimientos</h1>
-      </div>
-      <p class="text-xs text-slate-400 mt-1">Extracto de auditoría de todas las acumulaciones, canjes y ajustes registrados en la base de datos.</p>
+      <h1 class="page-title">Historial & Auditoría Global de Puntos</h1>
+      <p class="page-subtitle">Registro cronológico completo de todas las operaciones de acumulaciones y redenciones de puntos.</p>
     </div>
   </header>
 
-  <!-- Tabla Densa con Filtros -->
-  <section class="mt-2">
+  <section class="section">
     <HistoryTable />
   </section>
 </div>
+
+<style>
+  .historial-page {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+  }
+
+  .page-header {
+    padding-bottom: 16px;
+    border-bottom: 1px solid #e2e8f0;
+  }
+
+  .page-title {
+    font-size: 22px;
+    font-weight: 800;
+    color: #0f172a;
+  }
+
+  .page-subtitle {
+    font-size: 13px;
+    color: #64748b;
+    margin-top: 4px;
+  }
+
+  .section {
+    width: 100%;
+  }
+</style>

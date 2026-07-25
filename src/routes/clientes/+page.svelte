@@ -48,27 +48,27 @@
   }
 </script>
 
-<div class="clientes-view flex flex-col gap-6">
+<div class="page-container">
   <!-- Page Header -->
-  <header class="flex items-center justify-between pb-4 border-b border-slate-800">
+  <header class="page-header">
     <div>
-      <h1 class="text-2xl font-extrabold text-slate-100">Buscador & Gestión de Puntos por Cliente</h1>
-      <p class="text-xs text-slate-400 mt-1">Consulte clientes nativos del POS (`trc`), saldos acumulados e historial de movimientos.</p>
+      <h1 class="page-title">Gestión de Clientes & Puntos POS</h1>
+      <p class="page-subtitle">Consulte la tabla de clientes (`trc`), saldos acumulados y ejecute redenciones con validación en tiempo real.</p>
     </div>
   </header>
 
   <!-- 1. Buscador Instantáneo -->
-  <section>
+  <section class="section">
     <CustomerSearch />
   </section>
 
   <!-- 2. Tarjeta Financiera de Puntos -->
-  <section>
+  <section class="section">
     <PointsSummaryCard onOpenRedeemModal={handleOpenRedeemModal} />
   </section>
 
   <!-- 3. Tabla Densa de Historial -->
-  <section>
+  <section class="section">
     <HistoryTable />
   </section>
 
@@ -79,3 +79,33 @@
     onSuccess={handleRedeemSuccess}
   />
 </div>
+
+<style>
+  .page-container {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+  }
+
+  .page-header {
+    padding-bottom: 16px;
+    border-bottom: 1px solid #e2e8f0;
+  }
+
+  .page-title {
+    font-size: 22px;
+    font-weight: 800;
+    color: #0f172a;
+    letter-spacing: -0.02em;
+  }
+
+  .page-subtitle {
+    font-size: 13px;
+    color: #64748b;
+    margin-top: 4px;
+  }
+
+  .section {
+    width: 100%;
+  }
+</style>

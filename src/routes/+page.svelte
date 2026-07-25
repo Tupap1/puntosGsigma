@@ -2,7 +2,7 @@
   import { onMount } from 'svelte';
   import { isDbConnected, loyaltyConfigStore } from '$lib/stores/appStore';
   import { getLoyaltyConfig } from '$lib/api';
-  import { Award, Users, TrendingUp, DollarSign, Search, ArrowRight, ShieldCheck } from 'lucide-svelte';
+  import { Award, Users, TrendingUp, DollarSign, Search, ArrowRight, ShieldCheck, Database } from 'lucide-svelte';
 
   onMount(async () => {
     try {
@@ -35,7 +35,7 @@
   <!-- Metric Summary Cards -->
   <div class="metrics-grid">
     <div class="card metric-card">
-      <div class="metric-icon bg-emerald-500/10 text-emerald-400">
+      <div class="metric-icon icon-emerald">
         <Award size={24} />
       </div>
       <div class="metric-info">
@@ -46,7 +46,7 @@
     </div>
 
     <div class="card metric-card">
-      <div class="metric-icon bg-blue-500/10 text-blue-400">
+      <div class="metric-icon icon-blue">
         <DollarSign size={24} />
       </div>
       <div class="metric-info">
@@ -57,7 +57,7 @@
     </div>
 
     <div class="card metric-card">
-      <div class="metric-icon bg-purple-500/10 text-purple-400">
+      <div class="metric-icon icon-purple">
         <TrendingUp size={24} />
       </div>
       <div class="metric-info">
@@ -68,15 +68,15 @@
     </div>
 
     <div class="card metric-card">
-      <div class="metric-icon bg-amber-500/10 text-amber-400">
-        <ShieldCheck size={24} />
+      <div class="metric-icon icon-amber">
+        <Database size={24} />
       </div>
       <div class="metric-info">
-        <span class="metric-label">Estado de la Base de Datos</span>
-        <span class="metric-value {$isDbConnected ? 'text-emerald-400' : 'text-rose-400'}">
-          {$isDbConnected ? 'MySQL Activo' : 'Desconectado'}
+        <span class="metric-label">Estado de Conexión BD</span>
+        <span class="metric-value {$isDbConnected ? 'text-emerald' : 'text-amber'}">
+          {$isDbConnected ? 'MySQL 5.5 Activo' : 'Simulación (Sin BD)'}
         </span>
-        <span class="metric-hint">Modo de Lectura Directa POS</span>
+        <span class="metric-hint">Modo Lectura Directa POS</span>
       </div>
     </div>
   </div>
@@ -102,8 +102,8 @@
     <!-- Security Protocol Card -->
     <div class="card security-card">
       <div class="security-header">
-        <ShieldCheck size={20} class="text-emerald-400" />
-        <h4 class="font-bold text-slate-200">Protocolo de Seguridad Activo</h4>
+        <ShieldCheck size={20} class="text-emerald" />
+        <h4>Protocolo de Seguridad Activo</h4>
       </div>
       <ul class="security-list">
         <li>
@@ -120,7 +120,7 @@
         </li>
         <li>
           <span class="check-dot">✓</span>
-          <span><strong>Transacciones en Rust con Rollback Automático</strong> ante cualquier interrupción.</span>
+          <span><strong>Transacciones en Rust con Rollback Automático</strong> ante cualquier error.</span>
         </li>
       </ul>
     </div>
@@ -139,35 +139,42 @@
     align-items: center;
     justify-content: space-between;
     padding-bottom: 20px;
-    border-bottom: 1px solid var(--border-subtle);
+    border-bottom: 1px solid #e2e8f0;
   }
 
   .page-title {
     font-size: 26px;
     font-weight: 800;
-    color: var(--text-main);
+    color: #0f172a;
   }
 
   .page-subtitle {
     font-size: 13px;
-    color: var(--text-muted);
+    color: #64748b;
     margin-top: 4px;
   }
 
   .metrics-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    grid-template-columns: repeat(4, minmax(0, 1fr));
     gap: 20px;
+  }
+
+  @media (max-width: 1024px) {
+    .metrics-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
   }
 
   .metric-card {
     display: flex;
     align-items: center;
     gap: 16px;
-    background: var(--bg-surface);
-    border: 1px solid var(--border-subtle);
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
     border-radius: 12px;
     padding: 20px;
+    box-shadow: 0 1px 3px rgba(15, 23, 42, 0.05);
   }
 
   .metric-icon {
@@ -180,6 +187,11 @@
     flex-shrink: 0;
   }
 
+  .icon-emerald { background: #ecfdf5; color: #059669; }
+  .icon-blue { background: #eff6ff; color: #2563eb; }
+  .icon-purple { background: #f3e8ff; color: #9333ea; }
+  .icon-amber { background: #fffbeb; color: #d97706; }
+
   .metric-info {
     display: flex;
     flex-direction: column;
@@ -187,23 +199,26 @@
 
   .metric-label {
     font-size: 11px;
-    font-weight: 600;
-    color: var(--text-muted);
+    font-weight: 700;
+    color: #64748b;
     text-transform: uppercase;
     letter-spacing: 0.04em;
   }
 
   .metric-value {
     font-family: var(--font-display);
-    font-size: 22px;
+    font-size: 20px;
     font-weight: 800;
-    color: var(--text-main);
+    color: #0f172a;
     margin: 2px 0;
   }
 
+  .text-emerald { color: #059669 !important; }
+  .text-amber { color: #d97706 !important; }
+
   .metric-hint {
     font-size: 11px;
-    color: var(--text-dim);
+    color: #64748b;
   }
 
   .dashboard-sections {
@@ -213,19 +228,21 @@
   }
 
   .action-banner {
-    background: linear-gradient(135deg, rgba(19, 28, 49, 0.9) 0%, rgba(13, 20, 37, 0.95) 100%);
-    border: 1px solid var(--border-bright);
+    background: linear-gradient(135deg, #f0fdf4 0%, #e0f2fe 100%);
+    border: 1px solid #bbf7d0;
     padding: 28px;
+    border-radius: 14px;
   }
 
   .banner-content h3 {
     font-size: 20px;
-    font-weight: 700;
+    font-weight: 800;
+    color: #0f172a;
     margin-bottom: 8px;
   }
 
   .banner-content p {
-    color: var(--text-muted);
+    color: #475569;
     font-size: 13.5px;
     line-height: 1.6;
   }
@@ -233,15 +250,18 @@
   .banner-actions {
     display: flex;
     gap: 12px;
+    margin-top: 16px;
   }
 
   .security-card {
-    background: var(--bg-surface);
-    border: 1px solid var(--border-subtle);
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 14px;
     padding: 24px;
     display: flex;
     flex-direction: column;
     gap: 16px;
+    box-shadow: 0 1px 3px rgba(15, 23, 42, 0.05);
   }
 
   .security-header {
@@ -249,7 +269,13 @@
     align-items: center;
     gap: 10px;
     padding-bottom: 12px;
-    border-bottom: 1px solid var(--border-subtle);
+    border-bottom: 1px solid #e2e8f0;
+  }
+
+  .security-header h4 {
+    font-size: 15px;
+    font-weight: 700;
+    color: #0f172a;
   }
 
   .security-list {
@@ -264,11 +290,11 @@
     align-items: flex-start;
     gap: 10px;
     font-size: 13px;
-    color: var(--text-muted);
+    color: #334155;
   }
 
   .check-dot {
-    color: var(--accent-green);
+    color: #059669;
     font-weight: bold;
   }
 

@@ -52,7 +52,7 @@
         </div>
         <div class="badge {$isDbConnected ? 'badge-success' : 'badge-danger'}">
           <span class="dot-pulse {$isDbConnected ? 'dot-pulse-green' : 'dot-pulse-red'}"></span>
-          {$isDbConnected ? 'Conectado' : 'Desconectado'}
+          {$isDbConnected ? 'Conectado' : 'Sin Conexión'}
         </div>
       </div>
       <div class="db-status-body">
@@ -72,8 +72,8 @@
   .app-sidebar {
     width: 260px;
     height: 100vh;
-    background: var(--bg-deep);
-    border-right: 1px solid var(--border-subtle);
+    background: var(--sidebar-bg);
+    border-right: 1px solid var(--sidebar-border);
     display: flex;
     flex-direction: column;
     flex-shrink: 0;
@@ -85,15 +85,15 @@
     display: flex;
     align-items: center;
     gap: 12px;
-    border-bottom: 1px solid var(--border-subtle);
+    border-bottom: 1px solid var(--sidebar-border);
   }
 
   .brand-icon {
     width: 40px;
     height: 40px;
     border-radius: 10px;
-    background: rgba(16, 185, 129, 0.15);
-    border: 1px solid rgba(16, 185, 129, 0.3);
+    background: rgba(16, 185, 129, 0.2);
+    border: 1px solid rgba(16, 185, 129, 0.4);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -110,12 +110,12 @@
     font-weight: 800;
     font-size: 15px;
     letter-spacing: -0.01em;
-    color: var(--text-main);
+    color: var(--sidebar-text);
   }
 
   .brand-subtitle {
     font-size: 11px;
-    color: var(--text-muted);
+    color: var(--sidebar-text-muted);
     font-weight: 500;
   }
 
@@ -131,7 +131,7 @@
     font-size: 10px;
     font-weight: 700;
     letter-spacing: 0.08em;
-    color: var(--text-dim);
+    color: #64748b;
     padding: 0 12px 8px 12px;
   }
 
@@ -141,7 +141,7 @@
     gap: 12px;
     padding: 10px 14px;
     border-radius: 8px;
-    color: var(--text-muted);
+    color: var(--sidebar-text-muted);
     font-weight: 500;
     font-size: 13.5px;
     text-decoration: none;
@@ -150,13 +150,13 @@
   }
 
   .nav-item:hover {
-    background: var(--bg-surface-hover);
-    color: var(--text-main);
+    background: var(--sidebar-hover);
+    color: var(--sidebar-text);
   }
 
   .nav-item.active {
-    background: var(--bg-surface-active);
-    color: var(--accent-green);
+    background: var(--sidebar-active);
+    color: #34d399;
     font-weight: 600;
   }
 
@@ -165,20 +165,20 @@
     right: 0;
     top: 6px;
     bottom: 6px;
-    width: 3px;
-    background: var(--accent-green);
+    width: 3.5px;
+    background: #34d399;
     border-radius: 4px 0 0 4px;
-    box-shadow: 0 0 8px var(--accent-green);
+    box-shadow: 0 0 8px #34d399;
   }
 
   .sidebar-footer {
     padding: 16px;
-    border-top: 1px solid var(--border-subtle);
+    border-top: 1px solid var(--sidebar-border);
   }
 
   .db-status-card {
-    background: var(--bg-surface);
-    border: 1px solid var(--border-subtle);
+    background: #1e293b;
+    border: 1px solid #334155;
     border-radius: 10px;
     padding: 12px;
     display: flex;
@@ -198,12 +198,12 @@
     gap: 6px;
     font-size: 12px;
     font-weight: 600;
-    color: var(--text-main);
+    color: #f8fafc;
   }
 
   .db-host {
     font-size: 11px;
-    color: var(--text-dim);
+    color: #94a3b8;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -214,5 +214,12 @@
     margin-top: 4px;
     font-size: 11px;
     padding: 6px 10px;
+    background: #334155;
+    color: #f8fafc;
+    border: 1px solid #475569;
+  }
+
+  .db-btn:hover {
+    background: #475569;
   }
 </style>

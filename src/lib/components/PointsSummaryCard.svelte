@@ -1,7 +1,7 @@
 <script lang="ts">
-  import { selectedCustomerStore, customerSummaryStore, addToast } from '$lib/stores/appStore';
+  import { selectedCustomerStore, customerSummaryStore, addToast, isDbConnected } from '$lib/stores/appStore';
   import { getCustomerPointsSummary } from '$lib/api';
-  import { Coins, ArrowUpRight, ArrowDownRight, DollarSign, Gift, RefreshCw, UserCheck } from 'lucide-svelte';
+  import { Coins, ArrowUpRight, ArrowDownRight, DollarSign, Gift, RefreshCw, UserCheck, AlertTriangle } from 'lucide-svelte';
 
   export let onOpenRedeemModal: () => void = () => {};
 
@@ -25,7 +25,7 @@
     try {
       const summary = await getCustomerPointsSummary($selectedCustomerStore.trcid);
       customerSummaryStore.set(summary);
-      addToast('Saldo de puntos actualizado en tiempo real.', 'info');
+      addToast('Saldo de puntos actualizado.', 'info');
     } catch (err: any) {
       console.warn('Error al actualizar puntos:', err);
       addToast('Error al actualizar saldo de puntos.', 'error');
@@ -35,33 +35,37 @@
   }
 </script>
 
-<div class="card space-y-5 bg-surface border-subtle relative overflow-hidden">
-  <!-- Decorative Background Glow -->
-  <div class="absolute -right-16 -top-16 w-48 h-48 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none"></div>
-
+<div class="card summary-wrapper">
   {#if !$selectedCustomerStore}
     <!-- Empty State -->
-    <div class="py-10 text-center space-y-3">
-      <div class="w-14 h-14 rounded-full bg-slate-800/80 border border-slate-700 mx-auto flex items-center justify-center text-slate-400">
+    <div class="empty-state">
+      <div class="empty-icon">
         <UserCheck size={28} />
       </div>
-      <h3 class="text-base font-bold text-slate-300">Ningún Cliente Seleccionado</h3>
-      <p class="text-xs text-slate-500 max-w-xs mx-auto">
-        Busque y seleccione un cliente en el panel superior para consultar su estado financiero y saldo acumulado de puntos.
+      <h3 class="empty-title">Ningún Cliente Seleccionado</h3>
+      <p class="empty-subtitle">
+        Busque y seleccione un cliente en el buscador superior para consultar sus puntos acumulados y procesar canjes.
       </p>
     </div>
   {:else}
     {@const fullName = `${$selectedCustomerStore.trcnom} ${$selectedCustomerStore.trcape}`.trim()}
+    
+    <!-- Demo Mode Warning Banner if DB not connected -->
+    {#if !$isDbConnected}
+      <div class="demo-banner">
+        <AlertTriangle size={16} />
+        <span><strong>Modo Simulación (Sin Conexión a Base de Datos Local)</strong>: Mostrando datos de demostración. Configura tu base de datos en <strong>Configuración & BD</strong> para leer los clientes reales de tu POS.</span>
+      </div>
+    {/if}
+
     <!-- Customer Info Header -->
-    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-subtle pb-4">
-      <div>
-        <div class="flex items-center gap-2">
-          <span class="px-2 py-0.5 rounded text-xs font-mono font-bold bg-slate-800 text-emerald-400 border border-slate-700">
-            {$selectedCustomerStore.trcnumdoc}
-          </span>
-          <h3 class="text-lg font-bold text-slate-100">{fullName}</h3>
+    <div class="customer-header">
+      <div class="customer-info">
+        <div class="customer-title-row">
+          <span class="doc-badge">{$selectedCustomerStore.trcnumdoc}</span>
+          <h3 class="customer-name">{fullName}</h3>
         </div>
-        <p class="text-xs text-slate-400 mt-0.5">
+        <p class="customer-contact">
           Tel: {$selectedCustomerStore.trctel1 || 'N/A'} • Email: {$selectedCustomerStore.trcema1 || 'N/A'}
         </p>
       </div>
@@ -69,89 +73,79 @@
       <button 
         on:click={refreshPoints}
         disabled={isRefreshing}
-        class="btn btn-secondary btn-sm flex items-center gap-1.5 self-start sm:self-auto"
+        class="btn btn-secondary btn-sm"
         title="Actualizar saldo de puntos en tiempo real"
       >
-        <RefreshCw size={14} class={isRefreshing ? 'animate-spin text-emerald-400' : 'text-slate-400'} />
+        <RefreshCw size={14} class={isRefreshing ? 'animate-spin' : ''} />
         <span>Actualizar</span>
       </button>
     </div>
 
     <!-- Main Balance Breakdown Cards Grid -->
-    <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+    <div class="balance-grid">
       <!-- Puntos Ganados -->
-      <div class="p-4 rounded-xl bg-deep/80 border border-subtle/80 flex flex-col justify-between">
-        <div class="flex items-center justify-between text-slate-400 text-xs font-semibold">
+      <div class="balance-card">
+        <div class="card-label">
           <span>PUNTOS GANADOS</span>
-          <ArrowUpRight size={16} class="text-emerald-400" />
+          <ArrowUpRight size={16} color="#059669" />
         </div>
-        <div class="mt-3">
-          <span class="text-2xl font-bold font-display text-slate-100">
-            {formatNumber($customerSummaryStore?.puntos_acumulados || 0)}
-          </span>
-          <span class="text-xs text-slate-400 ml-1">pts</span>
+        <div class="card-value-row">
+          <span class="card-value">{formatNumber($customerSummaryStore?.puntos_acumulados || 0)}</span>
+          <span class="card-unit">pts</span>
         </div>
-        <p class="text-[11px] text-slate-500 mt-1">Acumulado bruto por facturación POS</p>
+        <p class="card-hint">Acumulado bruto por facturación POS</p>
       </div>
 
       <!-- Puntos Redimidos -->
-      <div class="p-4 rounded-xl bg-deep/80 border border-subtle/80 flex flex-col justify-between">
-        <div class="flex items-center justify-between text-slate-400 text-xs font-semibold">
+      <div class="balance-card">
+        <div class="card-label">
           <span>PUNTOS REDIMIDOS</span>
-          <ArrowDownRight size={16} class="text-amber-400" />
+          <ArrowDownRight size={16} color="#d97706" />
         </div>
-        <div class="mt-3">
-          <span class="text-2xl font-bold font-display text-slate-100">
-            {formatNumber($customerSummaryStore?.puntos_redimidos || 0)}
-          </span>
-          <span class="text-xs text-slate-400 ml-1">pts</span>
+        <div class="card-value-row">
+          <span class="card-value">{formatNumber($customerSummaryStore?.puntos_redimidos || 0)}</span>
+          <span class="card-unit">pts</span>
         </div>
-        <p class="text-[11px] text-slate-500 mt-1">Total canjeado en facturas</p>
+        <p class="card-hint">Total canjeado en facturas</p>
       </div>
 
       <!-- Saldo Disponible (Highlight Emerald) -->
-      <div class="p-4 rounded-xl bg-emerald-950/30 border border-emerald-500/40 flex flex-col justify-between shadow-lg shadow-emerald-950/40 relative">
-        <div class="flex items-center justify-between text-emerald-400 text-xs font-bold uppercase">
+      <div class="balance-card highlight-card">
+        <div class="card-label text-emerald">
           <span>SALDO DISPONIBLE</span>
-          <Coins size={18} class="text-emerald-400 animate-pulse" />
+          <Coins size={18} color="#059669" />
         </div>
-        <div class="mt-3">
-          <span class="text-3xl font-extrabold font-display text-emerald-400 drop-shadow">
-            {formatNumber($customerSummaryStore?.saldo_actual || 0)}
-          </span>
-          <span class="text-xs font-semibold text-emerald-300 ml-1">PTS</span>
+        <div class="card-value-row">
+          <span class="card-value text-emerald">{formatNumber($customerSummaryStore?.saldo_actual || 0)}</span>
+          <span class="card-unit text-emerald">PTS</span>
         </div>
-        <p class="text-[11px] text-emerald-300/70 mt-1">Listos para ser canjeados</p>
+        <p class="card-hint text-emerald">Listos para ser canjeados</p>
       </div>
 
       <!-- Valor COP Equivalente -->
-      <div class="p-4 rounded-xl bg-deep/80 border border-subtle/80 flex flex-col justify-between">
-        <div class="flex items-center justify-between text-slate-400 text-xs font-semibold">
+      <div class="balance-card">
+        <div class="card-label">
           <span>VALOR EN PESOS COP</span>
-          <DollarSign size={16} class="text-emerald-400" />
+          <DollarSign size={16} color="#059669" />
         </div>
-        <div class="mt-3">
-          <span class="text-2xl font-bold font-display text-slate-100">
-            {formatCurrency($customerSummaryStore?.valor_cop_disponible || 0)}
-          </span>
+        <div class="card-value-row">
+          <span class="card-value">{formatCurrency($customerSummaryStore?.valor_cop_disponible || 0)}</span>
         </div>
-        <p class="text-[11px] text-slate-500 mt-1">
-          Regla: 1 pt = ${$customerSummaryStore?.valor_punto_cop || 50} COP
-        </p>
+        <p class="card-hint">Regla: 1 pt = ${$customerSummaryStore?.valor_punto_cop || 50} COP</p>
       </div>
     </div>
 
     <!-- Action Bar -->
-    <div class="flex items-center justify-between pt-2 border-t border-subtle/60">
-      <div class="text-xs text-slate-400 flex items-center gap-1.5">
-        <Gift size={14} class="text-emerald-400" />
-        <span>Seleccione el botón para aplicar descuento de puntos en la factura POS activa.</span>
+    <div class="action-bar">
+      <div class="action-hint">
+        <Gift size={14} color="#059669" />
+        <span>Aplica el descuento de puntos directamente en la factura activa.</span>
       </div>
 
       <button 
         on:click={onOpenRedeemModal}
         disabled={!$customerSummaryStore || $customerSummaryStore.saldo_actual <= 0}
-        class="btn btn-primary btn-lg shadow-lg flex items-center gap-2"
+        class="btn btn-primary btn-lg"
       >
         <Gift size={18} />
         <span>Procesar Redención de Puntos</span>
@@ -159,3 +153,179 @@
     </div>
   {/if}
 </div>
+
+<style>
+  .summary-wrapper {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 14px;
+    padding: 24px;
+    box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06);
+  }
+
+  .empty-state {
+    padding: 32px 16px;
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .empty-icon {
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    background: #f1f5f9;
+    border: 1px solid #cbd5e1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #64748b;
+  }
+
+  .empty-title {
+    font-size: 16px;
+    font-weight: 700;
+    color: #0f172a;
+  }
+
+  .empty-subtitle {
+    font-size: 12px;
+    color: #64748b;
+    max-width: 320px;
+  }
+
+  .demo-banner {
+    background: #fffbeb;
+    border: 1px solid #fde68a;
+    border-radius: 8px;
+    padding: 10px 14px;
+    font-size: 12px;
+    color: #92400e;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .customer-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding-bottom: 16px;
+    border-bottom: 1px solid #e2e8f0;
+  }
+
+  .customer-title-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .doc-badge {
+    padding: 3px 8px;
+    background: #0f172a;
+    color: #34d399;
+    font-family: monospace;
+    font-weight: 700;
+    font-size: 12px;
+    border-radius: 6px;
+  }
+
+  .customer-name {
+    font-size: 18px;
+    font-weight: 800;
+    color: #0f172a;
+  }
+
+  .customer-contact {
+    font-size: 12px;
+    color: #64748b;
+    margin-top: 4px;
+  }
+
+  .balance-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 16px;
+  }
+
+  @media (max-width: 900px) {
+    .balance-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+  }
+
+  .balance-card {
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+  }
+
+  .highlight-card {
+    background: #ecfdf5;
+    border: 1px solid #a7f3d0;
+    box-shadow: 0 4px 12px rgba(5, 150, 105, 0.1);
+  }
+
+  .card-label {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 11px;
+    font-weight: 700;
+    color: #64748b;
+    letter-spacing: 0.04em;
+  }
+
+  .text-emerald { color: #059669 !important; }
+
+  .card-value-row {
+    margin-top: 10px;
+    display: flex;
+    align-items: baseline;
+    gap: 4px;
+  }
+
+  .card-value {
+    font-family: var(--font-display);
+    font-size: 24px;
+    font-weight: 800;
+    color: #0f172a;
+  }
+
+  .card-unit {
+    font-size: 12px;
+    font-weight: 600;
+    color: #64748b;
+  }
+
+  .card-hint {
+    font-size: 11px;
+    color: #64748b;
+    margin-top: 6px;
+  }
+
+  .action-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding-top: 12px;
+    border-top: 1px solid #e2e8f0;
+  }
+
+  .action-hint {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+    color: #64748b;
+  }
+</style>

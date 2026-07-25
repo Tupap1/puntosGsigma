@@ -22,44 +22,38 @@
   }
 </script>
 
-<div class="card space-y-4">
+<div class="history-card">
   <!-- Table Header & Filter Controls -->
-  <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-subtle pb-3">
-    <div class="flex items-center gap-2">
-      <History size={18} class="text-emerald-400" />
-      <h2 class="text-base font-bold text-slate-100">Historial de Movimientos de Puntos</h2>
-      <span class="text-xs text-slate-400">({filteredHistory.length} registros)</span>
+  <div class="history-header">
+    <div class="title-group">
+      <History size={18} class="icon-emerald" />
+      <h2 class="history-title">Historial de Movimientos de Puntos</h2>
+      <span class="count-badge">({filteredHistory.length} registros)</span>
     </div>
 
     <!-- Filter Buttons -->
-    <div class="flex items-center gap-1 bg-deep p-1 rounded-lg border border-subtle">
+    <div class="filter-group">
       <button 
         type="button"
         on:click={() => filterType = 'all'}
-        class="px-2.5 py-1 text-xs font-semibold rounded-md transition-colors"
-        class:bg-emerald-500={filterType === 'all'}
-        class:text-white={filterType === 'all'}
-        class:text-slate-400={filterType !== 'all'}
+        class="filter-btn"
+        class:active={filterType === 'all'}
       >
         Todos
       </button>
       <button 
         type="button"
         on:click={() => filterType = 'acumulacion'}
-        class="px-2.5 py-1 text-xs font-semibold rounded-md transition-colors"
-        class:bg-emerald-500={filterType === 'acumulacion'}
-        class:text-white={filterType === 'acumulacion'}
-        class:text-slate-400={filterType !== 'acumulacion'}
+        class="filter-btn"
+        class:active={filterType === 'acumulacion'}
       >
         Acumulaciones
       </button>
       <button 
         type="button"
         on:click={() => filterType = 'canje'}
-        class="px-2.5 py-1 text-xs font-semibold rounded-md transition-colors"
-        class:bg-emerald-500={filterType === 'canje'}
-        class:text-white={filterType === 'canje'}
-        class:text-slate-400={filterType !== 'canje'}
+        class="filter-btn"
+        class:active={filterType === 'canje'}
       >
         Canjes / Redenciones
       </button>
@@ -67,16 +61,16 @@
   </div>
 
   {#if !$selectedCustomerStore}
-    <div class="py-8 text-center text-slate-500 text-xs italic">
+    <div class="empty-msg">
       Seleccione un cliente para consultar el historial detallado de movimientos.
     </div>
   {:else if filteredHistory.length === 0}
-    <div class="py-8 text-center text-slate-500 text-xs italic">
+    <div class="empty-msg">
       No hay registros de movimientos para los filtros seleccionados.
     </div>
   {:else}
     <!-- High Speed Dense History Table -->
-    <div class="dense-table-wrapper max-h-72 overflow-y-auto">
+    <div class="dense-table-wrapper max-h-72">
       <table class="dense-table">
         <thead>
           <tr>
@@ -91,30 +85,30 @@
         <tbody>
           {#each filteredHistory as item}
             <tr>
-              <td class="font-mono text-slate-400 text-xs">{item.fecha}</td>
+              <td class="font-mono text-date">{item.fecha}</td>
               <td>
                 {#if item.tipo === 'acumulacion'}
-                  <span class="badge badge-success py-0.5 px-2 text-[11px]">
+                  <span class="badge badge-success">
                     <ArrowUpRight size={12} /> Venta POS
                   </span>
                 {:else if item.tipo === 'canje'}
-                  <span class="badge badge-amber py-0.5 px-2 text-[11px]">
+                  <span class="badge badge-amber">
                     <ArrowDownRight size={12} /> Redención
                   </span>
                 {:else}
-                  <span class="badge badge-danger py-0.5 px-2 text-[11px]">
+                  <span class="badge badge-danger">
                     Ajuste
                   </span>
                 {/if}
               </td>
-              <td class="font-mono font-semibold text-slate-200">{item.referencia_doc || '-'}</td>
-              <td class="text-right font-mono font-bold" class:text-emerald-400={item.puntos > 0} class:text-amber-400={item.puntos < 0}>
+              <td class="font-mono font-ref">{item.referencia_doc || '-'}</td>
+              <td class="text-right font-mono font-pts" class:text-green={item.puntos > 0} class:text-amber={item.puntos < 0}>
                 {item.puntos > 0 ? `+${formatNumber(item.puntos)}` : formatNumber(item.puntos)}
               </td>
-              <td class="text-right font-mono text-slate-300">
+              <td class="text-right font-mono text-cop">
                 {formatCurrency(item.monto_cop)}
               </td>
-              <td class="text-slate-400 text-xs">
+              <td class="text-details">
                 {item.concepto || '-'}
               </td>
             </tr>
@@ -124,3 +118,91 @@
     </div>
   {/if}
 </div>
+
+<style>
+  .history-card {
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 14px;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    box-shadow: 0 1px 3px rgba(15, 23, 42, 0.05);
+  }
+
+  .history-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding-bottom: 12px;
+    border-bottom: 1px solid #e2e8f0;
+  }
+
+  .title-group {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .icon-emerald { color: #059669; }
+
+  .history-title {
+    font-size: 16px;
+    font-weight: 700;
+    color: #0f172a;
+  }
+
+  .count-badge {
+    font-size: 12px;
+    color: #64748b;
+  }
+
+  .filter-group {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    background: #f1f5f9;
+    padding: 4px;
+    border-radius: 8px;
+    border: 1px solid #cbd5e1;
+  }
+
+  .filter-btn {
+    padding: 4px 10px;
+    font-size: 12px;
+    font-weight: 600;
+    border-radius: 6px;
+    border: none;
+    background: transparent;
+    color: #64748b;
+    cursor: pointer;
+    transition: all 150ms ease;
+  }
+
+  .filter-btn.active {
+    background: #059669;
+    color: #ffffff;
+  }
+
+  .empty-msg {
+    padding: 24px;
+    text-align: center;
+    font-size: 12px;
+    color: #64748b;
+    font-style: italic;
+  }
+
+  .max-h-72 {
+    max-height: 300px;
+    overflow-y: auto;
+  }
+
+  .text-date { color: #64748b; font-size: 12px; }
+  .font-ref { font-weight: 700; color: #0f172a; }
+  .font-pts { font-weight: 800; font-size: 13px; }
+  .text-green { color: #059669; }
+  .text-amber { color: #d97706; }
+  .text-cop { color: #0f172a; }
+  .text-details { color: #64748b; font-size: 12px; }
+</style>
