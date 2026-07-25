@@ -36,13 +36,14 @@ jobs:
         run: npm ci || npm install
 
       - name: Build Tauri app and generate release
-        uses: tauri-apps/tauri-action@v2
+        uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          tagName: v__VERSION__
-          releaseName: 'puntosGsigma v__VERSION__'
-          releaseBody: 'Ver los assets descargables adjuntos para instalar o actualizar puntosGsigma.'
-          releaseDraft: true
+          tagName: ${{ github.ref_name }}
+          releaseName: 'puntosGsigma ${{ github.ref_name }}'
+          releaseBody: 'Assets descargables oficiales para la aplicación de Puntos POS.'
+          releaseDraft: false
           prerelease: false
           args: --target x86_64-pc-windows-msvc
+
