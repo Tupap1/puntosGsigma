@@ -19,21 +19,21 @@ export interface Customer {
 
 export interface PointSummary {
   trcid: string;
-  puntos_acumulados: number;
+  puntos_acumulados_brutos: number;
   puntos_redimidos: number;
-  saldo_actual: number;
-  valor_cop_disponible: number;
-  valor_punto_cop: number;
+  saldo_disponible: number;
+  total_ventas_cop: number;
+  valor_equivalente_cop: number;
 }
 
 export interface PointTransaction {
-  id: number;
+  id?: number;
   trcid: string;
-  tipo: 'acumulacion' | 'canje' | 'ajuste';
+  tipo: string;
   puntos: number;
   monto_cop: number;
   concepto: string;
-  referencia_doc: string;
+  referencia_doc?: string;
   fecha: string;
 }
 
@@ -79,11 +79,11 @@ function getEmptyStateData<T>(command: string, args?: Record<string, unknown>): 
       const trcid = (args?.trcid as string) || '';
       return {
         trcid,
-        puntos_acumulados: 0,
+        puntos_acumulados_brutos: 0,
         puntos_redimidos: 0,
-        saldo_actual: 0,
-        valor_cop_disponible: 0,
-        valor_punto_cop: 50
+        saldo_disponible: 0,
+        total_ventas_cop: 0,
+        valor_equivalente_cop: 0
       } as T;
     }
 
@@ -98,7 +98,7 @@ function getEmptyStateData<T>(command: string, args?: Record<string, unknown>): 
         monto_por_punto: 1000,
         valor_punto_cop: 50,
         min_compra_puntos: 10000,
-        fecha_inicio_puntos: '2026-01-01'
+        fecha_inicio_puntos: '2000-01-01'
       } as T;
     }
 
@@ -122,8 +122,8 @@ function getEmptyStateData<T>(command: string, args?: Record<string, unknown>): 
 }
 
 // Public IPC API Functions matching Tauri Rust handlers exactly
-export async function checkDbConnection(): Promise<boolean> {
-  return safeInvoke<boolean>('check_db_connection');
+export async function checkDbConnection(config?: DbConfig): Promise<boolean> {
+  return safeInvoke<boolean>('check_db_connection', { config });
 }
 
 export async function searchCustomers(query: string): Promise<Customer[]> {
@@ -138,7 +138,7 @@ export async function getCustomerPointsSummary(trcid: string): Promise<PointSumm
 }
 
 export async function redeemPoints(trcid: string, puntos: number, referenciaDoc?: string, concepto?: string): Promise<PointTransaction> {
-  return safeInvoke<PointTransaction>('redeem_points', { trcid, puntos, referencia_doc: referenciaDoc, concepto });
+  return safeInvoke<PointTransaction>('redeem_points', { trcid, puntos_a_redimir: puntos, referencia_doc: referenciaDoc, concepto });
 }
 
 export async function getPointsHistory(trcid?: string): Promise<PointTransaction[]> {

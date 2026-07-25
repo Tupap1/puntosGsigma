@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { loyaltyConfigStore, dbConfigStore, isDbConnected, addToast } from '$lib/stores/appStore';
-  import { getLoyaltyConfig, saveLoyaltyConfig, getDbConfig, saveDbConfig, checkDbConnection } from '$lib/api';
+  import { getLoyaltyConfig, saveLoyaltyConfig, getDbConfig, saveDbConfig, checkDbConnection, type DbConfig } from '$lib/api';
   import { Settings, Save, Database, Server, Key, Shield, CheckCircle2, AlertTriangle, Loader2 } from 'lucide-svelte';
 
   let isSavingLoyalty = false;
@@ -11,7 +11,13 @@
   let dbTestSuccess: boolean | null = null;
 
   let localLoyalty = { ...$loyaltyConfigStore };
-  let localDb = { ...$dbConfigStore, database: 'pv' };
+  let localDb: DbConfig = { 
+    host: $dbConfigStore.host || '127.0.0.1',
+    port: $dbConfigStore.port || 3306,
+    user: $dbConfigStore.user || 'root',
+    password: $dbConfigStore.password || '',
+    database: 'pv' 
+  };
 
   onMount(async () => {
     try {
@@ -48,27 +54,34 @@
     dbTestMessage = 'Conectando al servidor MySQL 5.5...';
     dbTestSuccess = null;
 
-    // Hardcode database to 'pv' as required by POS architecture
+    // Standardize database to 'pv' and clean whitespace
     localDb.database = 'pv';
+    localDb.host = localDb.host.trim();
+    localDb.user = localDb.user.trim();
+    localDb.password = localDb.password || '';
 
     try {
+      // 1. Write config file
       await saveDbConfig(localDb);
       dbConfigStore.set(localDb);
 
-      const connected = await checkDbConnection();
+      // 2. Test live connection with updated credentials
+      const connected = await checkDbConnection(localDb);
       dbTestSuccess = connected;
       isDbConnected.set(connected);
 
       if (connected) {
         dbTestMessage = '¡Conexión verificada con éxito a la base de datos POS!';
-        addToast('Conexión con MySQL exitosa', 'success');
+        addToast('Conexión con MySQL 5.5 exitosa', 'success');
       } else {
         dbTestMessage = 'No se pudo conectar. Verifica que el servidor MySQL 5.5 esté corriendo en el puerto indicado y que el usuario y la contraseña sean correctos.';
         addToast('Falló la conexión a la base de datos', 'error');
       }
     } catch (err: any) {
       dbTestSuccess = false;
-      dbTestMessage = 'Error de conexión: ' + (err?.message || 'Servidor inalcanzable');
+      const errMsg = typeof err === 'string' ? err : err?.message || JSON.stringify(err);
+      dbTestMessage = 'Error de conexión: ' + errMsg;
+      addToast('Error al conectar con MySQL: ' + errMsg, 'error');
     } finally {
       isTestingDb = false;
     }

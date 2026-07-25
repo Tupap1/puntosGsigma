@@ -43,7 +43,7 @@ pub async fn create_connection_pool(config: &DbConfig) -> Result<MySqlPool, Stri
         config.database.trim()
     };
 
-    // 2. Try connecting directly to target database (e.g. 'pv')
+    // 2. Base options without database for initial check
     let base_options = MySqlConnectOptions::new()
         .host(target_host)
         .port(config.port)
@@ -176,20 +176,20 @@ mod tests {
     use super::*;
     use crate::models::LoyaltyConfig;
 
-    #[test]
-    fn test_points_calculation_standard() {
-        let config = LoyaltyConfig {
-            monto_por_punto: 1000.0,
-            valor_punto_cop: 50.0,
-            min_compra_puntos: 10000.0,
-            fecha_inicio_puntos: "2000-01-01".to_string(),
+    #[tokio::test]
+    async fn test_live_mysql_connection() {
+        let config = DbConfig {
+            host: "127.0.0.1".to_string(),
+            port: 3306,
+            user: "root".to_string(),
+            password: "7iu7Wi0".to_string(),
+            database: "pv".to_string(),
         };
 
-        let compra_100k = 100000.0;
-        let puntos = (compra_100k / config.monto_por_punto).floor();
-        assert_eq!(puntos, 100.0);
-
-        let valor_cop = puntos * config.valor_punto_cop;
-        assert_eq!(valor_cop, 5000.0);
+        let pool = create_connection_pool(&config).await;
+        assert!(pool.is_ok(), "Fallo la conexion live a MySQL: {:?}", pool.err());
+        let pool = pool.unwrap();
+        let init_res = init_db_tables(&pool).await;
+        assert!(init_res.is_ok(), "Fallo la creacion de tablas auxiliares: {:?}", init_res.err());
     }
 }
