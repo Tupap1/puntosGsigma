@@ -6,13 +6,13 @@
   export let isOpen = false;
   export let onClose: () => void = () => {};
 
-  let localConfig: DbConfig = { ...$dbConfigStore };
+  let localConfig: DbConfig = { ...$dbConfigStore, database: 'pv' };
   let isTesting = false;
   let testMessage = '';
   let testSuccess: boolean | null = null;
 
   $: if (isOpen) {
-    localConfig = { ...$dbConfigStore };
+    localConfig = { ...$dbConfigStore, database: 'pv' };
   }
 
   function handleClose() {
@@ -25,6 +25,8 @@
     isTesting = true;
     testMessage = 'Conectando al servidor MySQL...';
     testSuccess = null;
+    localConfig.database = 'pv';
+
     try {
       await saveDbConfig(localConfig);
       dbConfigStore.set(localConfig);
@@ -37,7 +39,7 @@
         testMessage = '¡Conexión exitosa a MySQL 5.5 POS!';
         addToast('Conexión con MySQL verificada con éxito', 'success');
       } else {
-        testMessage = 'No se pudo conectar. Verifica credenciales y servidor.';
+        testMessage = 'No se pudo conectar. Verifica credenciales y puerto del servidor.';
         addToast('Falló la conexión a MySQL', 'error');
       }
     } catch (err: any) {
@@ -146,18 +148,6 @@
             />
           </div>
         </div>
-      </div>
-
-      <div class="form-group">
-        <label for="dbName" class="form-label">Nombre de Base de Datos</label>
-        <input 
-          id="dbName"
-          type="text" 
-          bind:value={localConfig.database}
-          placeholder="pv"
-          class="form-input font-mono text-xs"
-          required
-        />
       </div>
 
       <!-- Test Status Banner -->

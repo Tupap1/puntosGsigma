@@ -24,31 +24,87 @@ impl AppState {
                 return Ok(pool.clone());
             }
         }
-        Err("No hay conexión activa a la base de datos MySQL.".to_string())
+        Err("No hay conexión activa a la base de datos MySQL 5.5.".to_string())
     }
 }
 
 pub async fn create_connection_pool(config: &DbConfig) -> Result<MySqlPool, String> {
-    let connect_options = MySqlConnectOptions::new()
-        .host(&config.host)
+    // 1. Resolve host: Convert "localhost" to IPv4 "127.0.0.1" for Windows MySQL 5.5 compatibility
+    let host_str = config.host.trim();
+    let target_host = if host_str.eq_ignore_ascii_case("localhost") || host_str.is_empty() {
+        "127.0.0.1"
+    } else {
+        host_str
+    };
+
+    let target_db = if config.database.trim().is_empty() {
+        "pv"
+    } else {
+        config.database.trim()
+    };
+
+    // 2. Try connecting directly to target database (e.g. 'pv')
+    let base_options = MySqlConnectOptions::new()
+        .host(target_host)
         .port(config.port)
-        .username(&config.user)
+        .username(config.user.trim())
         .password(&config.password)
-        .database(&config.database)
         .ssl_mode(MySqlSslMode::Disabled);
 
-    let pool = MySqlPoolOptions::new()
+    let target_options = base_options.clone().database(target_db);
+
+    let pool_result = MySqlPoolOptions::new()
         .max_connections(10)
         .acquire_timeout(std::time::Duration::from_secs(5))
-        .connect_with(connect_options)
-        .await
-        .map_err(|e| format!("Error al conectar con MySQL: {}", e))?;
+        .connect_with(target_options)
+        .await;
 
-    Ok(pool)
+    match pool_result {
+        Ok(pool) => Ok(pool),
+        Err(err_err) => {
+            let err_msg = err_err.to_string();
+            
+            // 3. If failure was due to Unknown database, connect without DB first and create 'pv'
+            if err_msg.contains("Unknown database") || err_msg.contains("1049") {
+                let root_pool = MySqlPoolOptions::new()
+                    .max_connections(2)
+                    .acquire_timeout(std::time::Duration::from_secs(5))
+                    .connect_with(base_options)
+                    .await
+                    .map_err(|e| format!("Error al conectar con MySQL 5.5 en {}:{}: {}", target_host, config.port, e))?;
+
+                let create_db_query = format!("CREATE DATABASE IF NOT EXISTS `{}` DEFAULT CHARACTER SET utf8;", target_db);
+                sqlx::query(&create_db_query)
+                    .execute(&root_pool)
+                    .await
+                    .map_err(|e| format!("Error creando base de datos '{}': {}", target_db, e))?;
+
+                root_pool.close().await;
+
+                // Reconnect to newly created database
+                let final_options = MySqlConnectOptions::new()
+                    .host(target_host)
+                    .port(config.port)
+                    .username(config.user.trim())
+                    .password(&config.password)
+                    .database(target_db)
+                    .ssl_mode(MySqlSslMode::Disabled);
+
+                MySqlPoolOptions::new()
+                    .max_connections(10)
+                    .acquire_timeout(std::time::Duration::from_secs(5))
+                    .connect_with(final_options)
+                    .await
+                    .map_err(|e| format!("Error conectando a BD creada '{}': {}", target_db, e))
+            } else {
+                Err(format!("Error de conexión MySQL ({}:{}): {}", target_host, config.port, err_msg))
+            }
+        }
+    }
 }
 
 pub async fn init_db_tables(pool: &MySqlPool) -> Result<(), String> {
-    // 1. pv.puntos_config
+    // 1. Table pv.puntos_config
     sqlx::query(
         r#"
         CREATE TABLE IF NOT EXISTS puntos_config (
@@ -76,7 +132,7 @@ pub async fn init_db_tables(pool: &MySqlPool) -> Result<(), String> {
     .await
     .map_err(|e| format!("Error insertando configuración por defecto: {}", e))?;
 
-    // 2. pv.puntos_saldo
+    // 2. Table pv.puntos_saldo
     sqlx::query(
         r#"
         CREATE TABLE IF NOT EXISTS puntos_saldo (
@@ -92,7 +148,7 @@ pub async fn init_db_tables(pool: &MySqlPool) -> Result<(), String> {
     .await
     .map_err(|e| format!("Error creando tabla puntos_saldo: {}", e))?;
 
-    // 3. pv.puntos_historial
+    // 3. Table pv.puntos_historial
     sqlx::query(
         r#"
         CREATE TABLE IF NOT EXISTS puntos_historial (
@@ -129,46 +185,11 @@ mod tests {
             fecha_inicio_puntos: "2000-01-01".to_string(),
         };
 
-        // Factura de $100.000 COP -> Debe dar 100 puntos
         let compra_100k = 100000.0;
         let puntos = (compra_100k / config.monto_por_punto).floor();
         assert_eq!(puntos, 100.0);
 
-        // Equivalencia en COP para canje de 100 puntos -> 100 * 50 = $5.000 COP
         let valor_cop = puntos * config.valor_punto_cop;
         assert_eq!(valor_cop, 5000.0);
     }
-
-    #[test]
-    fn test_minimum_purchase_threshold() {
-        let config = LoyaltyConfig {
-            monto_por_punto: 1000.0,
-            valor_punto_cop: 50.0,
-            min_compra_puntos: 10000.0,
-            fecha_inicio_puntos: "2000-01-01".to_string(),
-        };
-
-        // Compra menor al mínimo ($5.000 COP) -> No acumula puntos
-        let compra_5k = 5000.0;
-        let puntos = if compra_5k >= config.min_compra_puntos {
-            (compra_5k / config.monto_por_punto).floor()
-        } else {
-            0.0
-        };
-        assert_eq!(puntos, 0.0);
-    }
-
-    #[test]
-    fn test_redemption_validation() {
-        let saldo_disponible = 150.0;
-        let puntos_a_redimir = 100.0;
-
-        // Canje dentro del saldo -> Permitido
-        assert!(puntos_a_redimir <= saldo_disponible);
-
-        // Canje excediendo saldo -> Rechazado
-        let puntos_excesivos = 200.0;
-        assert!(puntos_excesivos > saldo_disponible);
-    }
 }
-

@@ -11,7 +11,7 @@
   let dbTestSuccess: boolean | null = null;
 
   let localLoyalty = { ...$loyaltyConfigStore };
-  let localDb = { ...$dbConfigStore };
+  let localDb = { ...$dbConfigStore, database: 'pv' };
 
   onMount(async () => {
     try {
@@ -22,8 +22,8 @@
       }
       const dbCfg = await getDbConfig();
       if (dbCfg) {
-        dbConfigStore.set(dbCfg);
-        localDb = { ...dbCfg };
+        dbConfigStore.set({ ...dbCfg, database: 'pv' });
+        localDb = { ...dbCfg, database: 'pv' };
       }
     } catch (e) {
       console.warn('Error al cargar configuración:', e);
@@ -47,6 +47,10 @@
     isTestingDb = true;
     dbTestMessage = 'Conectando al servidor MySQL 5.5...';
     dbTestSuccess = null;
+
+    // Hardcode database to 'pv' as required by POS architecture
+    localDb.database = 'pv';
+
     try {
       await saveDbConfig(localDb);
       dbConfigStore.set(localDb);
@@ -59,7 +63,7 @@
         dbTestMessage = '¡Conexión verificada con éxito a la base de datos POS!';
         addToast('Conexión con MySQL exitosa', 'success');
       } else {
-        dbTestMessage = 'No se pudo conectar. Verifica que el servidor MySQL 5.5 esté corriendo y las credenciales sean válidas.';
+        dbTestMessage = 'No se pudo conectar. Verifica que el servidor MySQL 5.5 esté corriendo en el puerto indicado y que el usuario y la contraseña sean correctos.';
         addToast('Falló la conexión a la base de datos', 'error');
       }
     } catch (err: any) {
@@ -212,19 +216,7 @@
           </div>
         </div>
 
-        <div class="form-group">
-          <label for="dbName" class="form-label">Nombre de Base de Datos</label>
-          <input 
-            id="dbName"
-            type="text" 
-            bind:value={localDb.database}
-            placeholder="pv"
-            class="form-input font-mono"
-            required
-          />
-        </div>
-
-        <!-- Banner status -->
+        <!-- Status Banner -->
         {#if dbTestMessage}
           <div class="test-banner {dbTestSuccess ? 'success' : dbTestSuccess === false ? 'error' : 'info'}">
             {#if dbTestSuccess}
