@@ -4,37 +4,40 @@ export interface DbConfig {
   host: string;
   port: number;
   user: string;
-  pass: string;
+  password?: string;
   database: string;
 }
 
 export interface Customer {
-  id: string;
-  doc_num: string;
-  name: string;
-  phone: string;
-  email: string;
+  trcid: string;
+  trcnumdoc: string;
+  trcnom: string;
+  trcape: string;
+  trctel1: string;
+  trcema1: string;
 }
 
-export interface CustomerPoints {
-  points_earned: number;
-  points_redeemed: number;
-  available_points: number;
-  cop_value: number;
+export interface PointSummary {
+  trcid: string;
+  puntos_acumulados: number;
+  puntos_redimidos: number;
+  saldo_actual: number;
+  valor_cop_disponible: number;
   valor_punto_cop: number;
 }
 
-export interface HistoryItem {
-  id: string;
-  date: string;
-  type: 'acumulacion' | 'canje' | 'ajuste';
-  invoice_ref: string;
-  points: number;
-  cop_value: number;
-  note: string;
+export interface PointTransaction {
+  id: number;
+  trcid: string;
+  tipo: 'acumulacion' | 'canje' | 'ajuste';
+  puntos: number;
+  monto_cop: number;
+  concepto: string;
+  referencia_doc: string;
+  fecha: string;
 }
 
-export interface PointsConfig {
+export interface LoyaltyConfig {
   monto_por_punto: number;
   valor_punto_cop: number;
   min_compra_puntos: number;
@@ -62,64 +65,72 @@ async function safeInvoke<T>(command: string, args?: Record<string, unknown>): P
 function getMockData<T>(command: string, args?: Record<string, unknown>): T {
   switch (command) {
     case 'check_db_connection':
-      return { connected: true, message: 'Conexión exitosa a MySQL 5.5 (POS Gsigma)' } as T;
+      return true as T;
       
     case 'search_customers': {
       const query = (args?.query as string || '').toLowerCase();
       const mockCustomers: Customer[] = [
-        { id: '1001', doc_num: '1098765432', name: 'JUAN CARLOS PÉREZ GÓMEZ', phone: '3109876543', email: 'juan.perez@email.com' },
-        { id: '1002', doc_num: '900123456', name: 'COMERCIALIZADORA ALFA SAS', phone: '6017654321', email: 'contacto@alfa.com' },
-        { id: '1003', doc_num: '63542109', name: 'MARÍA FERNANDA RODRÍGUEZ', phone: '3152345678', email: 'mafe.rodriguez@email.com' },
-        { id: '1004', doc_num: '1015432987', name: 'CARLOS ALBERTO MARTÍNEZ', phone: '3201239876', email: 'cmartinez@email.com' }
+        { trcid: '1001', trcnumdoc: '1098765432', trcnom: 'JUAN CARLOS', trcape: 'PÉREZ GÓMEZ', trctel1: '3109876543', trcema1: 'juan.perez@email.com' },
+        { trcid: '1002', trcnumdoc: '900123456', trcnom: 'COMERCIALIZADORA ALFA SAS', trcape: '', trctel1: '6017654321', trcema1: 'contacto@alfa.com' },
+        { trcid: '1003', trcnumdoc: '63542109', trcnom: 'MARÍA FERNANDA', trcape: 'RODRÍGUEZ', trctel1: '3152345678', trcema1: 'mafe.rodriguez@email.com' },
+        { trcid: '1004', trcnumdoc: '1015432987', trcnom: 'CARLOS ALBERTO', trcape: 'MARTÍNEZ', trctel1: '3201239876', trcema1: 'cmartinez@email.com' }
       ];
       if (!query) return mockCustomers as T;
       return mockCustomers.filter(c => 
-        c.doc_num.includes(query) || 
-        c.name.toLowerCase().includes(query) || 
-        c.phone.includes(query)
+        c.trcnumdoc.includes(query) || 
+        c.trcnom.toLowerCase().includes(query) || 
+        c.trcape.toLowerCase().includes(query) ||
+        c.trctel1.includes(query)
       ) as T;
     }
     
-    case 'get_customer_points': {
-      const customerId = args?.customerId as string;
+    case 'get_customer_points_summary': {
+      const trcid = args?.trcid as string;
       const valorPunto = 50; // 1 punto = 50 COP
-      if (customerId === '1001') {
+      if (trcid === '1001') {
         return {
-          points_earned: 4500,
-          points_redeemed: 1200,
-          available_points: 3300,
-          cop_value: 3300 * valorPunto,
+          trcid,
+          puntos_acumulados: 4500,
+          puntos_redimidos: 1200,
+          saldo_actual: 3300,
+          valor_cop_disponible: 3300 * valorPunto,
           valor_punto_cop: valorPunto
         } as T;
       }
       return {
-        points_earned: 1500,
-        points_redeemed: 0,
-        available_points: 1500,
-        cop_value: 1500 * valorPunto,
+        trcid,
+        puntos_acumulados: 1500,
+        puntos_redimidos: 0,
+        saldo_actual: 1500,
+        valor_cop_disponible: 1500 * valorPunto,
         valor_punto_cop: valorPunto
       } as T;
     }
 
     case 'redeem_points': {
-      const points = args?.points as number || 0;
+      const puntos = args?.puntos as number || 0;
       return {
-        success: true,
-        message: `Se redimieron con éxito ${points} puntos.`,
-        transaction_id: `RD-${Math.floor(Math.random() * 900000 + 100000)}`
+        id: Math.floor(Math.random() * 900000 + 100000),
+        trcid: args?.trcid as string,
+        tipo: 'canje',
+        puntos: -puntos,
+        monto_cop: -puntos * 50,
+        concepto: (args?.concepto as string) || 'Redención de Puntos',
+        referencia_doc: (args?.referencia_doc as string) || `RD-${Math.floor(Math.random() * 90000)}`,
+        fecha: new Date().toISOString()
       } as T;
     }
 
     case 'get_points_history': {
-      const mockHistory: HistoryItem[] = [
-        { id: 'h1', date: '2026-07-24 15:30', type: 'acumulacion', invoice_ref: 'FAC-9842', points: 450, cop_value: 22500, note: 'Venta POS $450.000 COP' },
-        { id: 'h2', date: '2026-07-20 11:15', type: 'canje', invoice_ref: 'RD-541209', points: -1200, cop_value: -60000, note: 'Redención en Caja 01' },
-        { id: 'h3', date: '2026-07-15 09:45', type: 'acumulacion', invoice_ref: 'FAC-9210', points: 4050, cop_value: 202500, note: 'Venta POS $4.050.000 COP' }
+      const mockHistory: PointTransaction[] = [
+        { id: 1, trcid: '1001', fecha: '2026-07-24 15:30', tipo: 'acumulacion', referencia_doc: 'FAC-9842', puntos: 450, monto_cop: 22500, concepto: 'Venta POS $450.000 COP' },
+        { id: 2, trcid: '1001', fecha: '2026-07-20 11:15', tipo: 'canje', referencia_doc: 'RD-541209', puntos: -1200, monto_cop: -60000, concepto: 'Redención en Caja 01' },
+        { id: 3, trcid: '1001', fecha: '2026-07-15 09:45', tipo: 'acumulacion', referencia_doc: 'FAC-9210', puntos: 4050, monto_cop: 202500, concepto: 'Venta POS $4.050.000 COP' }
       ];
       return mockHistory as T;
     }
 
-    case 'get_points_config': {
+    case 'get_loyalty_config': {
       return {
         monto_por_punto: 1000,
         valor_punto_cop: 50,
@@ -128,8 +139,22 @@ function getMockData<T>(command: string, args?: Record<string, unknown>): T {
       } as T;
     }
 
-    case 'save_points_config': {
-      return { success: true, message: 'Configuración de puntos guardada correctamente.' } as T;
+    case 'save_loyalty_config': {
+      return true as T;
+    }
+
+    case 'save_db_config': {
+      return true as T;
+    }
+
+    case 'get_db_config': {
+      return {
+        host: '127.0.0.1',
+        port: 3306,
+        user: 'root',
+        password: '',
+        database: 'pv'
+      } as T;
     }
 
     default:
@@ -137,14 +162,39 @@ function getMockData<T>(command: string, args?: Record<string, unknown>): T {
   }
 }
 
-// Public IPC API Functions
-export const api = {
-  checkDbConnection: (config?: DbConfig) => safeInvoke<{ connected: boolean; message: string }>('check_db_connection', { config }),
-  searchCustomers: (query: string) => safeInvoke<Customer[]>('search_customers', { query }),
-  getCustomerPoints: (customerId: string) => safeInvoke<CustomerPoints>('get_customer_points', { customerId }),
-  redeemPoints: (customerId: string, points: number, invoiceRef: string, note?: string) => 
-    safeInvoke<{ success: boolean; message: string; transaction_id: string }>('redeem_points', { customerId, points, invoiceRef, note }),
-  getPointsHistory: (customerId: string) => safeInvoke<HistoryItem[]>('get_points_history', { customerId }),
-  getPointsConfig: () => safeInvoke<PointsConfig>('get_points_config'),
-  savePointsConfig: (config: PointsConfig) => safeInvoke<{ success: boolean; message: string }>('save_points_config', { config })
-};
+// Public IPC API Functions matching Tauri Rust handlers exactly
+export async function checkDbConnection(): Promise<boolean> {
+  return safeInvoke<boolean>('check_db_connection');
+}
+
+export async function searchCustomers(query: string): Promise<Customer[]> {
+  return safeInvoke<Customer[]>('search_customers', { query });
+}
+
+export async function getCustomerPointsSummary(trcid: string): Promise<PointSummary> {
+  return safeInvoke<PointSummary>('get_customer_points_summary', { trcid });
+}
+
+export async function redeemPoints(trcid: string, puntos: number, referenciaDoc?: string, concepto?: string): Promise<PointTransaction> {
+  return safeInvoke<PointTransaction>('redeem_points', { trcid, puntos, referencia_doc: referenciaDoc, concepto });
+}
+
+export async function getPointsHistory(trcid?: string): Promise<PointTransaction[]> {
+  return safeInvoke<PointTransaction[]>('get_points_history', { trcid });
+}
+
+export async function getLoyaltyConfig(): Promise<LoyaltyConfig> {
+  return safeInvoke<LoyaltyConfig>('get_loyalty_config');
+}
+
+export async function saveLoyaltyConfig(config: LoyaltyConfig): Promise<boolean> {
+  return safeInvoke<boolean>('save_loyalty_config', { config });
+}
+
+export async function saveDbConfig(config: DbConfig): Promise<boolean> {
+  return safeInvoke<boolean>('save_db_config', { config });
+}
+
+export async function getDbConfig(): Promise<DbConfig> {
+  return safeInvoke<DbConfig>('get_db_config');
+}

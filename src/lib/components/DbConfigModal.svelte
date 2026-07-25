@@ -1,53 +1,58 @@
 <script lang="ts">
-  import { isDbConfigModalOpen, dbConnected, isDbTesting, toasts } from '../stores/appStore';
-  import { api, type DbConfig } from '../api';
+  import { dbConfigStore, isDbConnected, addToast } from '$lib/stores/appStore';
+  import { saveDbConfig, checkDbConnection, type DbConfig } from '$lib/api';
   import { X, Database, Server, Key, Shield, CheckCircle2, AlertTriangle, Loader2 } from 'lucide-svelte';
 
-  let config: DbConfig = {
-    host: '127.0.0.1',
-    port: 3306,
-    user: 'root',
-    pass: '',
-    database: 'gsigma_pos'
-  };
+  export let isOpen = false;
+  export let onClose: () => void = () => {};
 
+  let localConfig: DbConfig = { ...$dbConfigStore };
+  let isTesting = false;
   let testMessage = '';
   let testSuccess: boolean | null = null;
 
-  function close() {
-    isDbConfigModalOpen.set(false);
+  $: if (isOpen) {
+    localConfig = { ...$dbConfigStore };
+  }
+
+  function handleClose() {
     testMessage = '';
     testSuccess = null;
+    onClose();
   }
 
   async function testConnection() {
-    isDbTesting.set(true);
-    testMessage = 'Conectando a servidor MySQL...';
+    isTesting = true;
+    testMessage = 'Conectando al servidor MySQL...';
     testSuccess = null;
     try {
-      const res = await api.checkDbConnection(config);
-      testSuccess = res.connected;
-      testMessage = res.message;
-      dbConnected.set(res.connected);
-      if (res.connected) {
-        toasts.add('Prueba de conexión BD exitosa', 'success');
+      await saveDbConfig(localConfig);
+      dbConfigStore.set(localConfig);
+
+      const connected = await checkDbConnection();
+      testSuccess = connected;
+      isDbConnected.set(connected);
+
+      if (connected) {
+        testMessage = '¡Conexión exitosa a MySQL 5.5 POS!';
+        addToast('Conexión con MySQL verificada con éxito', 'success');
       } else {
-        toasts.add('Falló la conexión a BD: ' + res.message, 'error');
+        testMessage = 'No se pudo conectar. Verifica credenciales y servidor.';
+        addToast('Falló la conexión a MySQL', 'error');
       }
     } catch (err: any) {
       testSuccess = false;
       testMessage = 'Error de conexión: ' + (err?.message || 'Servidor inalcanzable');
-      toasts.add('Error al probar BD', 'error');
+      addToast('Error al probar conexión con MySQL', 'error');
     } finally {
-      isDbTesting.set(false);
+      isTesting = false;
     }
   }
 
-  async function saveConfig() {
+  async function handleSubmit() {
     await testConnection();
     if (testSuccess) {
-      toasts.add('Configuración de conexión MySQL guardada correctamente', 'success');
-      close();
+      handleClose();
     }
   }
 </script>
@@ -55,9 +60,9 @@
 <!-- Modal Backdrop Overlay -->
 <div 
   class="modal-backdrop"
-  class:open={$isDbConfigModalOpen}
-  on:click|self={close}
-  on:keydown={e => (e.key === 'Escape' || e.key === 'Enter') && close()}
+  class:open={isOpen}
+  on:click|self={handleClose}
+  on:keydown={e => (e.key === 'Escape' || e.key === 'Enter') && handleClose()}
   role="button"
   tabindex="0"
 >
@@ -76,7 +81,8 @@
       </div>
 
       <button 
-        on:click={close}
+        type="button"
+        on:click={handleClose}
         class="p-2 rounded-lg text-slate-400 hover:text-slate-100 hover:bg-slate-800/80 transition-colors"
       >
         <X size={20} />
@@ -84,7 +90,7 @@
     </div>
 
     <!-- Form Inputs -->
-    <form on:submit|preventDefault={saveConfig} class="space-y-4">
+    <form on:submit|preventDefault={handleSubmit} class="space-y-4">
       <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
         <div class="form-group md:col-span-2">
           <label for="dbHost" class="form-label">Servidor / Host MySQL</label>
@@ -93,7 +99,7 @@
             <input 
               id="dbHost"
               type="text" 
-              bind:value={config.host}
+              bind:value={localConfig.host}
               placeholder="127.0.0.1"
               class="form-input pl-9 font-mono text-xs"
               required
@@ -106,7 +112,7 @@
           <input 
             id="dbPort"
             type="number" 
-            bind:value={config.port}
+            bind:value={localConfig.port}
             placeholder="3306"
             class="form-input font-mono text-xs"
             required
@@ -120,7 +126,7 @@
           <input 
             id="dbUser"
             type="text" 
-            bind:value={config.user}
+            bind:value={localConfig.user}
             placeholder="root"
             class="form-input font-mono text-xs"
             required
@@ -134,7 +140,7 @@
             <input 
               id="dbPass"
               type="password" 
-              bind:value={config.pass}
+              bind:value={localConfig.password}
               placeholder="••••••••"
               class="form-input pl-9 font-mono text-xs"
             />
@@ -147,8 +153,8 @@
         <input 
           id="dbName"
           type="text" 
-          bind:value={config.database}
-          placeholder="gsigma_pos"
+          bind:value={localConfig.database}
+          placeholder="pv"
           class="form-input font-mono text-xs"
           required
         />
@@ -175,10 +181,10 @@
         <button 
           type="button"
           on:click={testConnection}
-          disabled={$isDbTesting}
+          disabled={isTesting}
           class="btn btn-secondary text-xs flex items-center gap-1.5"
         >
-          {#if $isDbTesting}
+          {#if isTesting}
             <Loader2 size={14} class="animate-spin" />
             <span>Probando...</span>
           {:else}
@@ -190,17 +196,17 @@
         <div class="flex items-center gap-2">
           <button 
             type="button"
-            on:click={close}
+            on:click={handleClose}
             class="btn btn-ghost text-xs"
           >
             Cancelar
           </button>
           <button 
             type="submit"
-            disabled={$isDbTesting}
+            disabled={isTesting}
             class="btn btn-primary text-xs"
           >
-            Guardar Configuración
+            Guardar & Conectar
           </button>
         </div>
       </div>

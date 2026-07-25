@@ -1,6 +1,6 @@
 <script lang="ts">
-  import { api, type Customer } from '../api';
-  import { selectedCustomer, customerPoints, pointsHistory, toasts } from '../stores/appStore';
+  import { searchCustomers, getCustomerPointsSummary, getPointsHistory, type Customer } from '$lib/api';
+  import { selectedCustomerStore, customerSummaryStore, customerHistoryStore, addToast } from '$lib/stores/appStore';
   import { Search, X, User, Phone, Mail, CheckCircle2, Loader2 } from 'lucide-svelte';
   import { onMount } from 'svelte';
 
@@ -19,9 +19,10 @@
   async function performSearch() {
     isSearching = true;
     try {
-      searchResults = await api.searchCustomers(searchQuery);
+      searchResults = await searchCustomers(searchQuery);
     } catch (err: any) {
-      toasts.add('Error al buscar clientes: ' + err?.message, 'error');
+      console.warn('Error en búsqueda de clientes:', err);
+      addToast('Error al consultar la tabla de clientes.', 'error');
     } finally {
       isSearching = false;
     }
@@ -33,15 +34,17 @@
   }
 
   async function selectCustomer(customer: Customer) {
-    selectedCustomer.set(customer);
+    selectedCustomerStore.set(customer);
     try {
-      const points = await api.getCustomerPoints(customer.id);
-      const history = await api.getPointsHistory(customer.id);
-      customerPoints.set(points);
-      pointsHistory.set(history);
-      toasts.add(`Cliente ${customer.name} seleccionado`, 'success');
+      const summary = await getCustomerPointsSummary(customer.trcid);
+      const history = await getPointsHistory(customer.trcid);
+      customerSummaryStore.set(summary);
+      customerHistoryStore.set(history);
+      const fullName = `${customer.trcnom} ${customer.trcape}`.trim();
+      addToast(`Cliente ${fullName} seleccionado`, 'success');
     } catch (err: any) {
-      toasts.add('Error al obtener datos del cliente: ' + err?.message, 'error');
+      console.warn('Error al cargar datos del cliente:', err);
+      addToast('Error al obtener los puntos del cliente.', 'error');
     }
   }
 
@@ -56,7 +59,7 @@
       <Search size={18} class="text-emerald-400" />
       Buscador Instantáneo de Clientes POS
     </h2>
-    <span class="text-xs text-slate-400 font-medium">Búsqueda rápida por Cédula, NIT, Nombre o Teléfono</span>
+    <span class="text-xs text-slate-400 font-medium">Búsqueda directa sobre tabla `trc` de GsigmaPOS</span>
   </div>
 
   <!-- Input Field with Debounce -->
@@ -101,7 +104,7 @@
         {#if isSearching && searchResults.length === 0}
           <tr>
             <td colspan="5" class="text-center py-6 text-slate-400">
-              <Loader2 size={20} class="animate-spin inline-block mr-2" /> Buscando registros en BD...
+              <Loader2 size={20} class="animate-spin inline-block mr-2" /> Buscando clientes...
             </td>
           </tr>
         {:else if searchResults.length === 0}
@@ -112,45 +115,47 @@
           </tr>
         {:else}
           {#each searchResults as customer}
+            {@const isSelected = $selectedCustomerStore?.trcid === customer.trcid}
+            {@const fullName = `${customer.trcnom} ${customer.trcape}`.trim()}
             <tr 
               class="cursor-pointer" 
-              class:selected={$selectedCustomer?.id === customer.id}
+              class:selected={isSelected}
               on:click={() => selectCustomer(customer)}
             >
-              <td class="font-mono font-semibold text-emerald-400">{customer.doc_num}</td>
+              <td class="font-mono font-semibold text-emerald-400">{customer.trcnumdoc}</td>
               <td class="font-medium text-slate-200 flex items-center gap-2">
                 <User size={14} class="text-slate-400" />
-                {customer.name}
+                {fullName}
               </td>
               <td class="text-slate-300">
-                {#if customer.phone}
+                {#if customer.trctel1}
                   <span class="inline-flex items-center gap-1">
                     <Phone size={12} class="text-slate-500" />
-                    {customer.phone}
+                    {customer.trctel1}
                   </span>
                 {:else}
                   <span class="text-slate-600">-</span>
                 {/if}
               </td>
               <td class="text-slate-400 text-xs">
-                {#if customer.email}
+                {#if customer.trcema1}
                   <span class="inline-flex items-center gap-1">
                     <Mail size={12} class="text-slate-500" />
-                    {customer.email}
+                    {customer.trcema1}
                   </span>
                 {:else}
                   <span class="text-slate-600">-</span>
                 {/if}
               </td>
               <td class="text-right">
-                {#if $selectedCustomer?.id === customer.id}
-                  <span class="btn btn-sm btn-primary py-0.5 px-2 text.xs pointer-events-none">
+                {#if isSelected}
+                  <span class="btn btn-sm btn-primary py-0.5 px-2 text-xs pointer-events-none">
                     <CheckCircle2 size={12} /> Seleccionado
                   </span>
                 {:else}
                   <button 
                     on:click|stopPropagation={() => selectCustomer(customer)}
-                    class="btn btn-sm btn-secondary py-0.5 px-2 text.xs hover:border-emerald-500"
+                    class="btn btn-sm btn-secondary py-0.5 px-2 text-xs hover:border-emerald-500"
                   >
                     Seleccionar
                   </button>

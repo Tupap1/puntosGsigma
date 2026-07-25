@@ -1,7 +1,9 @@
 <script lang="ts">
-  import { selectedCustomer, customerPoints, isRedeemModalOpen, toasts } from '../stores/appStore';
-  import { api } from '../api';
+  import { selectedCustomerStore, customerSummaryStore, addToast } from '$lib/stores/appStore';
+  import { getCustomerPointsSummary } from '$lib/api';
   import { Coins, ArrowUpRight, ArrowDownRight, DollarSign, Gift, RefreshCw, UserCheck } from 'lucide-svelte';
+
+  export let onOpenRedeemModal: () => void = () => {};
 
   let isRefreshing = false;
 
@@ -18,14 +20,15 @@
   }
 
   async function refreshPoints() {
-    if (!$selectedCustomer) return;
+    if (!$selectedCustomerStore) return;
     isRefreshing = true;
     try {
-      const points = await api.getCustomerPoints($selectedCustomer.id);
-      customerPoints.set(points);
-      toasts.add('Saldo de puntos actualizado', 'info');
+      const summary = await getCustomerPointsSummary($selectedCustomerStore.trcid);
+      customerSummaryStore.set(summary);
+      addToast('Saldo de puntos actualizado en tiempo real.', 'info');
     } catch (err: any) {
-      toasts.add('Error al actualizar puntos: ' + err?.message, 'error');
+      console.warn('Error al actualizar puntos:', err);
+      addToast('Error al actualizar saldo de puntos.', 'error');
     } finally {
       isRefreshing = false;
     }
@@ -36,7 +39,7 @@
   <!-- Decorative Background Glow -->
   <div class="absolute -right-16 -top-16 w-48 h-48 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none"></div>
 
-  {#if !$selectedCustomer}
+  {#if !$selectedCustomerStore}
     <!-- Empty State -->
     <div class="py-10 text-center space-y-3">
       <div class="w-14 h-14 rounded-full bg-slate-800/80 border border-slate-700 mx-auto flex items-center justify-center text-slate-400">
@@ -48,17 +51,18 @@
       </p>
     </div>
   {:else}
+    {@const fullName = `${$selectedCustomerStore.trcnom} ${$selectedCustomerStore.trcape}`.trim()}
     <!-- Customer Info Header -->
     <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-subtle pb-4">
       <div>
         <div class="flex items-center gap-2">
           <span class="px-2 py-0.5 rounded text-xs font-mono font-bold bg-slate-800 text-emerald-400 border border-slate-700">
-            {$selectedCustomer.doc_num}
+            {$selectedCustomerStore.trcnumdoc}
           </span>
-          <h3 class="text-lg font-bold text-slate-100">{$selectedCustomer.name}</h3>
+          <h3 class="text-lg font-bold text-slate-100">{fullName}</h3>
         </div>
         <p class="text-xs text-slate-400 mt-0.5">
-          Tel: {$selectedCustomer.phone || 'N/A'} • Email: {$selectedCustomer.email || 'N/A'}
+          Tel: {$selectedCustomerStore.trctel1 || 'N/A'} • Email: {$selectedCustomerStore.trcema1 || 'N/A'}
         </p>
       </div>
 
@@ -83,11 +87,11 @@
         </div>
         <div class="mt-3">
           <span class="text-2xl font-bold font-display text-slate-100">
-            {formatNumber($customerPoints?.points_earned || 0)}
+            {formatNumber($customerSummaryStore?.puntos_acumulados || 0)}
           </span>
           <span class="text-xs text-slate-400 ml-1">pts</span>
         </div>
-        <p class="text-[11px] text-slate-500 mt-1">Acumulado bruto por facturación</p>
+        <p class="text-[11px] text-slate-500 mt-1">Acumulado bruto por facturación POS</p>
       </div>
 
       <!-- Puntos Redimidos -->
@@ -98,7 +102,7 @@
         </div>
         <div class="mt-3">
           <span class="text-2xl font-bold font-display text-slate-100">
-            {formatNumber($customerPoints?.points_redeemed || 0)}
+            {formatNumber($customerSummaryStore?.puntos_redimidos || 0)}
           </span>
           <span class="text-xs text-slate-400 ml-1">pts</span>
         </div>
@@ -113,7 +117,7 @@
         </div>
         <div class="mt-3">
           <span class="text-3xl font-extrabold font-display text-emerald-400 drop-shadow">
-            {formatNumber($customerPoints?.available_points || 0)}
+            {formatNumber($customerSummaryStore?.saldo_actual || 0)}
           </span>
           <span class="text-xs font-semibold text-emerald-300 ml-1">PTS</span>
         </div>
@@ -128,11 +132,11 @@
         </div>
         <div class="mt-3">
           <span class="text-2xl font-bold font-display text-slate-100">
-            {formatCurrency($customerPoints?.cop_value || 0)}
+            {formatCurrency($customerSummaryStore?.valor_cop_disponible || 0)}
           </span>
         </div>
         <p class="text-[11px] text-slate-500 mt-1">
-          Regla: 1 pt = ${$customerPoints?.valor_punto_cop || 50} COP
+          Regla: 1 pt = ${$customerSummaryStore?.valor_punto_cop || 50} COP
         </p>
       </div>
     </div>
@@ -145,8 +149,8 @@
       </div>
 
       <button 
-        on:click={() => isRedeemModalOpen.set(true)}
-        disabled={!$customerPoints || $customerPoints.available_points <= 0}
+        on:click={onOpenRedeemModal}
+        disabled={!$customerSummaryStore || $customerSummaryStore.saldo_actual <= 0}
         class="btn btn-primary btn-lg shadow-lg flex items-center gap-2"
       >
         <Gift size={18} />

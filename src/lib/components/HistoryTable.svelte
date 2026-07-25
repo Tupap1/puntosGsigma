@@ -1,12 +1,12 @@
 <script lang="ts">
-  import { pointsHistory, selectedCustomer } from '../stores/appStore';
-  import { History, ArrowUpRight, ArrowDownRight, SlidersHorizontal, FileText, CheckCircle2 } from 'lucide-svelte';
+  import { customerHistoryStore, selectedCustomerStore } from '$lib/stores/appStore';
+  import { History, ArrowUpRight, ArrowDownRight } from 'lucide-svelte';
 
   let filterType: 'all' | 'acumulacion' | 'canje' = 'all';
 
-  $: filteredHistory = $pointsHistory.filter(item => {
+  $: filteredHistory = $customerHistoryStore.filter(item => {
     if (filterType === 'all') return true;
-    return item.type === filterType;
+    return item.tipo === filterType;
   });
 
   function formatCurrency(amount: number): string {
@@ -34,6 +34,7 @@
     <!-- Filter Buttons -->
     <div class="flex items-center gap-1 bg-deep p-1 rounded-lg border border-subtle">
       <button 
+        type="button"
         on:click={() => filterType = 'all'}
         class="px-2.5 py-1 text-xs font-semibold rounded-md transition-colors"
         class:bg-emerald-500={filterType === 'all'}
@@ -43,6 +44,7 @@
         Todos
       </button>
       <button 
+        type="button"
         on:click={() => filterType = 'acumulacion'}
         class="px-2.5 py-1 text-xs font-semibold rounded-md transition-colors"
         class:bg-emerald-500={filterType === 'acumulacion'}
@@ -52,6 +54,7 @@
         Acumulaciones
       </button>
       <button 
+        type="button"
         on:click={() => filterType = 'canje'}
         class="px-2.5 py-1 text-xs font-semibold rounded-md transition-colors"
         class:bg-emerald-500={filterType === 'canje'}
@@ -63,7 +66,7 @@
     </div>
   </div>
 
-  {#if !$selectedCustomer}
+  {#if !$selectedCustomerStore}
     <div class="py-8 text-center text-slate-500 text-xs italic">
       Seleccione un cliente para consultar el historial detallado de movimientos.
     </div>
@@ -88,13 +91,13 @@
         <tbody>
           {#each filteredHistory as item}
             <tr>
-              <td class="font-mono text-slate-400 text-xs">{item.date}</td>
+              <td class="font-mono text-slate-400 text-xs">{item.fecha}</td>
               <td>
-                {#if item.type === 'acumulacion'}
+                {#if item.tipo === 'acumulacion'}
                   <span class="badge badge-success py-0.5 px-2 text-[11px]">
                     <ArrowUpRight size={12} /> Venta POS
                   </span>
-                {:else if item.type === 'canje'}
+                {:else if item.tipo === 'canje'}
                   <span class="badge badge-amber py-0.5 px-2 text-[11px]">
                     <ArrowDownRight size={12} /> Redención
                   </span>
@@ -104,15 +107,15 @@
                   </span>
                 {/if}
               </td>
-              <td class="font-mono font-semibold text-slate-200">{item.invoice_ref}</td>
-              <td class="text-right font-mono font-bold" class:text-emerald-400={item.points > 0} class:text-amber-400={item.points < 0}>
-                {item.points > 0 ? `+${formatNumber(item.points)}` : formatNumber(item.points)}
+              <td class="font-mono font-semibold text-slate-200">{item.referencia_doc || '-'}</td>
+              <td class="text-right font-mono font-bold" class:text-emerald-400={item.puntos > 0} class:text-amber-400={item.puntos < 0}>
+                {item.puntos > 0 ? `+${formatNumber(item.puntos)}` : formatNumber(item.puntos)}
               </td>
               <td class="text-right font-mono text-slate-300">
-                {formatCurrency(item.cop_value)}
+                {formatCurrency(item.monto_cop)}
               </td>
               <td class="text-slate-400 text-xs">
-                {item.note || '-'}
+                {item.concepto || '-'}
               </td>
             </tr>
           {/each}
