@@ -1,0 +1,21 @@
+[package]
+name = "puntos-gsigma"
+version = "0.1.0"
+description = "Sistema de Fidelización y Puntos POS Gsigma"
+authors = ["Gsigma"]
+edition = "2021"
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+tauri-plugin-updater = "2"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+tokio = { version = "1.0", features = ["full"] }
+sqlx = { version = "0.7", features = ["mysql", "runtime-tokio-rustls", "chrono"] }
+chrono = { version = "0.4", features = ["serde"] }
+dotenvy = "0.15"
+tracing = "0.1"
+tracing-subscriber = "0.3"

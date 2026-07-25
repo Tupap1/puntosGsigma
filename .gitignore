@@ -1,0 +1,22 @@
+# Node / SvelteKit
+node_modules/
+build/
+.svelte-kit/
+dist/
+
+# Rust / Cargo
+src-tauri/target/
+
+# Environment / Local credentials
+.env
+db_config.json
+
+# Large SQL dumps / Database copies
+*.sql
+
+# Logs
+*.log
+
+# OS generated
+.DS_Store
+Thumbs.db
