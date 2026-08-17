@@ -1,9 +1,20 @@
 <script lang="ts">
   import { page } from '$app/stores';
   import { isDbConnected, dbConfigStore } from '$lib/stores/appStore';
-  import { LayoutDashboard, Users, History, Settings, Database, Award } from 'lucide-svelte';
+  import { checkForUpdates } from '$lib/updater';
+  import { LayoutDashboard, Users, History, Settings, Database, Award, RefreshCw } from 'lucide-svelte';
 
   export let onOpenDbModal: () => void = () => {};
+
+  let checkingUpdates = false;
+  async function handleCheckUpdates() {
+    checkingUpdates = true;
+    try {
+      await checkForUpdates(false);
+    } finally {
+      checkingUpdates = false;
+    }
+  }
 
   $: currentPath = $page.url.pathname;
 
@@ -65,6 +76,11 @@
         Ajustes Conexión
       </button>
     </div>
+
+    <button type="button" class="update-btn" on:click={handleCheckUpdates} disabled={checkingUpdates}>
+      <RefreshCw size={13} class={checkingUpdates ? 'spin' : ''} />
+      {checkingUpdates ? 'Buscando...' : 'Buscar actualizaciones'}
+    </button>
   </div>
 </aside>
 
@@ -221,5 +237,43 @@
 
   .db-btn:hover {
     background: #475569;
+  }
+
+  .update-btn {
+    width: 100%;
+    margin-top: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    padding: 8px 10px;
+    font-size: 11.5px;
+    font-weight: 600;
+    color: var(--sidebar-text-muted);
+    background: transparent;
+    border: 1px solid var(--sidebar-border);
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all var(--transition-fast);
+  }
+
+  .update-btn:hover:not(:disabled) {
+    color: #34d399;
+    border-color: rgba(52, 211, 153, 0.4);
+    background: rgba(52, 211, 153, 0.08);
+  }
+
+  .update-btn:disabled {
+    opacity: 0.6;
+    cursor: default;
+  }
+
+  .update-btn :global(.spin) {
+    animation: spin 1s linear infinite;
+  }
+
+  @keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
   }
 </style>
