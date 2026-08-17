@@ -32,7 +32,7 @@ pub async fn check_db_connection(
         .await
         .map_err(|e| format!("Error en prueba SELECT 1: {}", e))?;
 
-    // Initialize tables if needed
+    // Initialize auxiliary tables in database 'pv'
     init_db_tables(&pool).await?;
 
     // Update active pool & config in state
@@ -56,12 +56,13 @@ pub async fn search_customers(
     let pool = state.get_pool().await?;
     let search_term = format!("%{}%", query.trim());
 
-    // Native POS table: READ ONLY (SELECT ONLY)
+    // Native POS customer table is adm.trc (SELECT ONLY)
     let rows = sqlx::query(
         r#"
         SELECT TRCID, TRCNUMDOC, TRCNOM, TRCAPE, TRCTEL1, trcema1
-        FROM trc
-        WHERE TRCNUMDOC LIKE ? OR TRCNOM LIKE ? OR TRCAPE LIKE ? OR TRCTEL1 LIKE ?
+        FROM adm.trc
+        WHERE (TRCNUMDOC LIKE ? OR TRCNOM LIKE ? OR TRCAPE LIKE ? OR TRCTEL1 LIKE ?)
+          AND TRCNUMDOC IS NOT NULL AND TRCNUMDOC != ''
         LIMIT 50
         "#
     )
@@ -71,7 +72,7 @@ pub async fn search_customers(
     .bind(&search_term)
     .fetch_all(&pool)
     .await
-    .map_err(|e| format!("Error buscando clientes en tabla trc: {}", e))?;
+    .map_err(|e| format!("Error buscando clientes en tabla adm.trc: {}", e))?;
 
     let mut customers = Vec::new();
     for row in rows {
@@ -98,35 +99,44 @@ pub async fn get_customer_points_summary(
     // 1. Fetch current loyalty config
     let config = get_loyalty_config(state.clone()).await?;
 
-    // 2. Fetch gross sales for the customer from native table 'venta' (SELECT ONLY)
-    // Supports matching VENCLI with TRCID or TRCNUMDOC
-    let total_ventas: f64 = sqlx::query_scalar(
+    // 2. Fetch gross sales & accumulated points for customer from native table
+    //    pv.venta (SELECT ONLY). Matches VENCLI with TRCID or TRCNUMDOC.
+    //
+    //    Los puntos se calculan por factura, FLOOR(VENVAL / monto_por_punto), y
+    //    luego se suman (según el plan: "cada factura elegible"). Esto difiere de
+    //    sumar primero y dividir después, y evita regalar puntos por fracciones
+    //    acumuladas entre facturas.
+    let monto_por_punto = if config.monto_por_punto > 0.0 { config.monto_por_punto } else { 1000.0 };
+
+    let row = sqlx::query(
         r#"
-        SELECT COALESCE(SUM(VENVAL), 0.0)
-        FROM venta
-        WHERE (VENCLI = ? OR VENCLI = (SELECT TRCNUMDOC FROM trc WHERE TRCID = ? LIMIT 1))
+        SELECT
+            COALESCE(SUM(VENVAL), 0.0)                       AS total_ventas,
+            COALESCE(SUM(FLOOR(VENVAL / ?)), 0.0)            AS puntos_brutos
+        FROM pv.venta
+        WHERE (VENCLI = ? OR VENCLI = (SELECT TRCNUMDOC FROM adm.trc WHERE TRCID = ? LIMIT 1))
           AND (VENEST IS NULL OR VENEST != 'A')
           AND VENVAL >= ?
           AND VENFEC >= ?
         "#
     )
+    .bind(monto_por_punto)
     .bind(&trcid)
     .bind(&trcid)
     .bind(config.min_compra_puntos)
     .bind(&config.fecha_inicio_puntos)
     .fetch_one(&pool)
     .await
-    .unwrap_or(0.0);
+    .map_err(|e| format!("Error calculando puntos de ventas en pv.venta: {}", e))?;
 
-    // Calculate gross accumulated points: FLOOR(total_ventas / monto_por_punto)
-    let monto_por_punto = if config.monto_por_punto > 0.0 { config.monto_por_punto } else { 1000.0 };
-    let puntos_acumulados_brutos = (total_ventas / monto_por_punto).floor();
+    let total_ventas: f64 = row.try_get("total_ventas").unwrap_or(0.0);
+    let puntos_acumulados_brutos: f64 = row.try_get("puntos_brutos").unwrap_or(0.0);
 
-    // 3. Fetch total redeemed points from auxiliary table 'puntos_historial'
+    // 3. Fetch total redeemed points from auxiliary table pv.puntos_historial
     let puntos_redimidos: f64 = sqlx::query_scalar(
         r#"
         SELECT COALESCE(SUM(puntos), 0.0)
-        FROM puntos_historial
+        FROM pv.puntos_historial
         WHERE trcid = ? AND tipo = 'REDENCION'
         "#
     )
@@ -182,10 +192,10 @@ pub async fn redeem_points(
     let config = get_loyalty_config(state.clone()).await?;
     let monto_cop = puntos_a_redimir * config.valor_punto_cop;
 
-    // 3. Insert transaction into auxiliary table 'puntos_historial'
+    // 3. Insert transaction into auxiliary table pv.puntos_historial
     let insert_res = sqlx::query(
         r#"
-        INSERT INTO puntos_historial (trcid, tipo, puntos, monto_cop, concepto, referencia_doc, fecha)
+        INSERT INTO pv.puntos_historial (trcid, tipo, puntos, monto_cop, concepto, referencia_doc, fecha)
         VALUES (?, 'REDENCION', ?, ?, ?, ?, NOW())
         "#
     )
@@ -207,13 +217,13 @@ pub async fn redeem_points(
 
     let new_id = result.last_insert_id() as i64;
 
-    // 4. Update consolidated balance table 'puntos_saldo'
+    // 4. Update consolidated balance table pv.puntos_saldo
     let nuevo_redimidos = summary.puntos_redimidos + puntos_a_redimir;
     let nuevo_saldo = (summary.puntos_acumulados_brutos - nuevo_redimidos).max(0.0);
 
     let upsert_res = sqlx::query(
         r#"
-        INSERT INTO puntos_saldo (trcid, puntos_acumulados, puntos_redimidos, saldo_actual, ultima_actualizacion)
+        INSERT INTO pv.puntos_saldo (trcid, puntos_acumulados, puntos_redimidos, saldo_actual, ultima_actualizacion)
         VALUES (?, ?, ?, ?, NOW())
         ON DUPLICATE KEY UPDATE
             puntos_acumulados = VALUES(puntos_acumulados),
@@ -241,7 +251,7 @@ pub async fn redeem_points(
 
     // Query formatted date of inserted transaction
     let fecha_str: String = sqlx::query_scalar(
-        "SELECT DATE_FORMAT(fecha, '%Y-%m-%d %H:%i:%s') FROM puntos_historial WHERE id = ?"
+        "SELECT DATE_FORMAT(fecha, '%Y-%m-%d %H:%i:%s') FROM pv.puntos_historial WHERE id = ?"
     )
     .bind(new_id)
     .fetch_one(&pool)
@@ -262,24 +272,38 @@ pub async fn redeem_points(
 
 #[tauri::command]
 pub async fn get_points_history(
-    trcid: String,
+    trcid: Option<String>,
     state: State<'_, AppState>,
 ) -> Result<Vec<PointTransaction>, String> {
     let pool = state.get_pool().await?;
 
-    let rows = sqlx::query(
-        r#"
-        SELECT id, trcid, tipo, puntos, monto_cop, concepto, referencia_doc,
-               DATE_FORMAT(fecha, '%Y-%m-%d %H:%i:%s') as fecha_fmt
-        FROM puntos_historial
-        WHERE trcid = ?
-        ORDER BY id DESC
-        LIMIT 100
-        "#
-    )
-    .bind(&trcid)
-    .fetch_all(&pool)
-    .await
+    let rows = if let Some(ref id_val) = trcid {
+        sqlx::query(
+            r#"
+            SELECT id, trcid, tipo, puntos, monto_cop, concepto, referencia_doc,
+                   DATE_FORMAT(fecha, '%Y-%m-%d %H:%i:%s') as fecha_fmt
+            FROM pv.puntos_historial
+            WHERE trcid = ?
+            ORDER BY id DESC
+            LIMIT 100
+            "#
+        )
+        .bind(id_val)
+        .fetch_all(&pool)
+        .await
+    } else {
+        sqlx::query(
+            r#"
+            SELECT id, trcid, tipo, puntos, monto_cop, concepto, referencia_doc,
+                   DATE_FORMAT(fecha, '%Y-%m-%d %H:%i:%s') as fecha_fmt
+            FROM pv.puntos_historial
+            ORDER BY id DESC
+            LIMIT 100
+            "#
+        )
+        .fetch_all(&pool)
+        .await
+    }
     .map_err(|e| format!("Error consultando extracto de historial: {}", e))?;
 
     let mut history = Vec::new();
@@ -309,7 +333,7 @@ pub async fn get_loyalty_config(
         r#"
         SELECT monto_por_punto, valor_punto_cop, min_compra_puntos,
                DATE_FORMAT(fecha_inicio_puntos, '%Y-%m-%d') as fecha_fmt
-        FROM puntos_config
+        FROM pv.puntos_config
         WHERE id = 1
         "#
     )
@@ -338,7 +362,7 @@ pub async fn save_loyalty_config(
 
     sqlx::query(
         r#"
-        INSERT INTO puntos_config (id, monto_por_punto, valor_punto_cop, min_compra_puntos, fecha_inicio_puntos, updated_at)
+        INSERT INTO pv.puntos_config (id, monto_por_punto, valor_punto_cop, min_compra_puntos, fecha_inicio_puntos, updated_at)
         VALUES (1, ?, ?, ?, ?, NOW())
         ON DUPLICATE KEY UPDATE
             monto_por_punto = VALUES(monto_por_punto),
@@ -371,7 +395,7 @@ pub async fn save_db_config(
     std::fs::write(&file_path, content)
         .map_err(|e| format!("Error escribiendo archivo db_config.json: {}", e))?;
 
-    // Try applying config
+    // Apply & connect with provided credentials
     check_db_connection(Some(config), state).await
 }
 

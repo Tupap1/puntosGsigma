@@ -1,0 +1,40 @@
+# Entorno de prueba local para el módulo de Puntos POS Gsigma.
+# Levanta un MySQL 5.5 (misma versión que producción GsigmaPOS/Itheke) y carga
+# automáticamente la copia real de la base de datos + datos de venta sintéticos
+# para validar el motor de puntos de extremo a extremo.
+#
+# Uso:
+#   cd docker
+#   docker compose up -d          # levanta y carga la copia (tarda varios minutos)
+#   docker compose logs -f db     # observa el avance de la carga inicial
+#   docker compose down -v        # detiene y borra el volumen
+#
+# Credenciales de prueba: root / test  en 127.0.0.1:3307
+
+services:
+  db:
+    image: mysql:5.5
+    container_name: puntos_mysql55
+    command:
+      - --character-set-server=utf8
+      - --collation-server=utf8_general_ci
+      - --sql-mode=
+    environment:
+      MYSQL_ROOT_PASSWORD: test
+    ports:
+      # Se expone en 3316 en el host para no chocar con un MySQL local en 3306.
+      - "3316:3306"
+    volumes:
+      # La copia real se ejecuta primero (orden alfabético) y luego el seed.
+      - "../Copia21 20260709 1809.sql:/docker-entrypoint-initdb.d/01-copia.sql:ro"
+      - "./seed-test-data.sql:/docker-entrypoint-initdb.d/02-seed.sql:ro"
+      - db_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-ptest"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 300s
+
+volumes:
+  db_data:
