@@ -5,6 +5,7 @@
   import ToastContainer from '$lib/components/ToastContainer.svelte';
   import { onMount } from 'svelte';
   import { checkDbConnection, getDbConfig } from '$lib/api';
+  import { checkForUpdates } from '$lib/updater';
   import { isDbConnected, dbConfigStore, addToast } from '$lib/stores/appStore';
 
   let showDbModal = false;
@@ -21,6 +22,9 @@
       console.warn('Error al verificar conexión inicial:', err);
       isDbConnected.set(false);
     }
+
+    // Verificación silenciosa de actualizaciones en segundo plano.
+    checkForUpdates(true);
   });
 
   function handleOpenDbModal() {
