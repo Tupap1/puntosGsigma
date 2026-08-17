@@ -39,11 +39,18 @@ jobs:
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Firma de los paquetes de auto-actualización. Configura estos secretos
+          # en el repositorio (Settings > Secrets and variables > Actions):
+          #   TAURI_SIGNING_PRIVATE_KEY          -> contenido de docker/../*.key privado
+          #   TAURI_SIGNING_PRIVATE_KEY_PASSWORD -> contraseña de la llave (vacía si no tiene)
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
           tagName: ${{ github.ref_name }}
           releaseName: 'puntosGsigma ${{ github.ref_name }}'
           releaseBody: 'Assets descargables oficiales para la aplicación de Puntos POS.'
           releaseDraft: false
           prerelease: false
+          includeUpdaterJson: true
           args: --target x86_64-pc-windows-msvc
 

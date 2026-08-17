@@ -174,18 +174,29 @@ pub async fn init_db_tables(pool: &MySqlPool) -> Result<(), String> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::models::LoyaltyConfig;
+
+    // Integration test contra un MySQL 5.5 real (contenedor Docker de `docker/`).
+    // Marcado `#[ignore]` para que NO corra en CI ni en `cargo test` normal: solo
+    // se ejecuta a demanda y toma las credenciales de variables de entorno, de modo
+    // que no queda ninguna credencial embebida en el repositorio.
+    //
+    // Ejecutar:
+    //   DB_HOST=127.0.0.1 DB_PORT=3316 DB_USER=root DB_PASS=test \
+    //     cargo test -p puntos-gsigma --lib -- --ignored --nocapture
+    fn config_from_env() -> DbConfig {
+        DbConfig {
+            host: std::env::var("DB_HOST").unwrap_or_else(|_| "127.0.0.1".to_string()),
+            port: std::env::var("DB_PORT").ok().and_then(|v| v.parse().ok()).unwrap_or(3316),
+            user: std::env::var("DB_USER").unwrap_or_else(|_| "root".to_string()),
+            password: std::env::var("DB_PASS").unwrap_or_else(|_| "test".to_string()),
+            database: std::env::var("DB_NAME").unwrap_or_else(|_| "pv".to_string()),
+        }
+    }
 
     #[tokio::test]
-    async fn test_live_mysql_connection() {
-        let config = DbConfig {
-            host: "127.0.0.1".to_string(),
-            port: 3306,
-            user: "root".to_string(),
-            password: "7iu7Wi0".to_string(),
-            database: "pv".to_string(),
-        };
-
+    #[ignore = "requiere el contenedor MySQL 5.5 de docker/ activo"]
+    async fn test_live_mysql_connection_and_init() {
+        let config = config_from_env();
         let pool = create_connection_pool(&config).await;
         assert!(pool.is_ok(), "Fallo la conexion live a MySQL: {:?}", pool.err());
         let pool = pool.unwrap();

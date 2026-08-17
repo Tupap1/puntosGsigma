@@ -13,6 +13,12 @@ db_config.json
 
 # Large SQL dumps / Database copies
 *.sql
+# ...excepto el seed pequeño del harness de prueba Docker (versionado a propósito)
+!docker/seed-test-data.sql
+
+# Llaves de firma del updater (nunca versionar la privada)
+*.key
+*.key.pub
 
 # Logs
 *.log
